@@ -1,0 +1,20 @@
+{
+    "name": "modules-garden/admin-bolt",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Jakub Filip",
+            "email": "jakub.fi@modulesgarden.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "config": {
+        "platform-check": false
+    },
+    "autoload": {
+        "psr-4": {
+            "ModulesGarden\\AdminBolt\\": "./"
+        }
+    },
+    "require": {}
+}

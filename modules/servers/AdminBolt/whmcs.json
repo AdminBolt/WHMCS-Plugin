@@ -1,0 +1,15 @@
+{
+  "schema": "1.0",
+  "type": "whmcs-servers",
+  "name": "AdminBolt",
+  "category": "provisioning",
+  "description": {
+    "name": "AdminBolt"
+  },
+  "authors": [
+    {
+      "name": "ModulesGarden",
+      "homepage": "https:\/\/www.modulesgarden.com\/"
+    }
+  ]
+}
