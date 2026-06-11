@@ -8,7 +8,7 @@ class MetaData extends AbstractAction
     {
         return [
             'DisplayName' => 'AdminBolt',
-            'APIVersion' => '0.0.1',
+            'APIVersion' => '0.0.2',
             'RequiresServer' => true,
             'DefaultNonSSLPort' => '8443',
             'DefaultSSLPort' => '8443'

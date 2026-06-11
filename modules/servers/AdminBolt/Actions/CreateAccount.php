@@ -3,7 +3,6 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use WHMCS\Database\Capsule;
-use Exception;
 
 class CreateAccount extends AbstractAction
 {
@@ -15,7 +14,7 @@ class CreateAccount extends AbstractAction
             'username' => $this->getUsername(),
             'password' => $this->params['password'],
             'email' => $this->params['clientsdetails']['email'],
-            'phone' => '+' . $this->params['clientsdetails']['phonecc'] + $this->params['clientsdetails']['phonenumber'],
+            'phone' => $this->formatPhone(),
             'address' => $this->params['clientsdetails']['address1'],
             'city' => $this->params['clientsdetails']['city'],
             'state' => $this->params['clientsdetails']['state'],
@@ -24,7 +23,12 @@ class CreateAccount extends AbstractAction
             'company' => $this->params['clientsdetails']['company'],
         ]);
 
-        $this->updateCustomFieldValue('resellerId', $result['id']);
+        $resellerId = $this->extractId($result);
+
+        if($resellerId > 0)
+        {
+            $this->saveCustomFieldValue('resellerId', $resellerId);
+        }
 
         return 'success';
     }
@@ -40,7 +44,7 @@ class CreateAccount extends AbstractAction
             'password' => $this->params['password'],
             'is_suspended' => false,
             'name' => $this->params['clientsdetails']['fullname'],
-            'phone' => '+' . $this->params['clientsdetails']['phonecc'] + $this->params['clientsdetails']['phonenumber'],
+            'phone' => $this->formatPhone(),
             'address' => $this->params['clientsdetails']['address1'],
             'city' => $this->params['clientsdetails']['city'],
             'state' => $this->params['clientsdetails']['state'],
@@ -49,52 +53,50 @@ class CreateAccount extends AbstractAction
             'company' => $this->params['clientsdetails']['company']
         ]);
 
-        $this->updateCustomFieldValue('hostingAccountId', $result['hostingAccount']['id']);
+        $hostingAccountId = $this->extractId($result);
+
+        if($hostingAccountId > 0)
+        {
+            $this->saveCustomFieldValue('hostingAccountId', $hostingAccountId);
+        }
 
         return 'success';
     }
 
-    protected function updateCustomFieldValue(string $customFieldName, string $value): void
+    protected function extractId(mixed $response): int
     {
-        $customFieldValue = Capsule::table('tblcustomfieldsvalues')
-            ->join('tblcustomfields', 'tblcustomfieldsvalues.fieldid', '=', 'tblcustomfields.id')
-            ->where('tblcustomfields.type', '=', 'product')
-            ->where('tblcustomfields.relid', '=', $this->params['packageid'])
-            ->where('tblcustomfieldsvalues.relid', '=', $this->params['serviceid'])
-            ->where('tblcustomfields.fieldname', 'LIKE', "$customFieldName|%")
-            ->first(['tblcustomfieldsvalues.id']);
-
-        if($customFieldValue)
+        if(!is_array($response))
         {
-            Capsule::table('tblcustomfieldsvalues')
-                ->where('id', '=', $customFieldValue->id)
-                ->update([
-                    'value' => $value
-                ]);
+            return 0;
         }
-        else
-        {
-            $customField = Capsule::table('tblcustomfields')
-                ->where('type', '=', 'product')
-                ->where('relid', '=', $this->params['packageid'])
-                ->where('fieldname', 'LIKE', "$customFieldName|%")
-                ->first([
-                    'id'
-                ]);
 
-            if(!$customField)
+        if(isset($response['id']))
+        {
+            return (int) $response['id'];
+        }
+
+        foreach(['hostingAccount', 'hosting_account', 'reseller', 'data'] as $key)
+        {
+            if(isset($response[$key]) && is_array($response[$key]) && isset($response[$key]['id']))
             {
-                throw new Exception("Custom field $customFieldName does not exist");
+                return (int) $response[$key]['id'];
             }
-
-            Capsule::table('tblcustomfieldsvalues')
-                ->insert([
-                    'fieldid' => $customField->id,
-                    'relid' => $this->params['serviceid'],
-                    'value' => $value
-                ]);
         }
 
+        return 0;
+    }
+
+    protected function formatPhone(): string
+    {
+        $cc = trim((string) ($this->params['clientsdetails']['phonecc'] ?? ''));
+        $number = trim((string) ($this->params['clientsdetails']['phonenumber'] ?? ''));
+
+        if($cc === '' && $number === '')
+        {
+            return '';
+        }
+
+        return '+' . $cc . $number;
     }
 
     protected function updateUsername(string $username): void
@@ -123,12 +125,13 @@ class CreateAccount extends AbstractAction
 
     protected function getUsername(): string
     {
-        $username = $this->params['username'];
+        $username = $this->params['username'] ?? '';
 
         if(empty($username))
         {
             $username = $this->generateUsername();
             $this->updateUsername($username);
+            $this->params['username'] = $username;
         }
 
         return $username;
