@@ -68,6 +68,8 @@ class UsageUpdate extends AbstractAction
                 'tblcustomfieldsvalues.value'
             ]);
 
-        return $customField ? $customField->value : null;
+        return $customField && is_numeric($customField->value)
+            ? (int) $customField->value
+            : null;
     }
 }
