@@ -7,7 +7,7 @@ class ServiceSingleSignOn extends AbstractAction
 {
     public function sharedExecute(): array
     {
-        $hostingAccountId = $this->params['customfields']['hostingAccountId'];
+        $hostingAccountId = $this->getHostingAccountId();
 
         $api = $this->getApiInstance();
         $result = $api->post('/api/hosting-accounts/' . $hostingAccountId . '/generate-sso-token');

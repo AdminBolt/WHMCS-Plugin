@@ -11,7 +11,7 @@ class ChangePackage extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->params['customfields']['hostingAccountId'];
+        $hostingAccountId = $this->getHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->put('/api/hosting-accounts/' . $hostingAccountId, [

@@ -6,7 +6,7 @@ class TerminateAccount extends AbstractAction
 {
     public function resellerExecute(): string
     {
-        $resellerId = $this->params['customfields']['resellerId'];
+        $resellerId = $this->getResellerId();
 
         $api = $this->getApiInstance();
         $api->delete('/api/resellers/' . $resellerId);
@@ -16,7 +16,7 @@ class TerminateAccount extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->params['customfields']['hostingAccountId'];
+        $hostingAccountId = $this->getHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->delete('/api/hosting-accounts/' . $hostingAccountId);
