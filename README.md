@@ -2,7 +2,7 @@
 
 ## Installation
 
-Download the module package and extract it into the main WHMCS directory. The files will be placed into their appropriate locations including `modules/servers/AdminBolt`.
+Download the module package from https://get.adminbolt.com/bolt-whmcs.zip and extract it. Merge the `modules` folder from the package into the main WHMCS directory, so the files land in their locations including `modules/servers/AdminBolt`.
 
 ![Installation](images/page_1_img_1.png)
 
