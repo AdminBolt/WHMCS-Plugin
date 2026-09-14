@@ -1,0 +1,88 @@
+name: Republish module to get.adminbolt.com
+
+# Manual re-publish of an existing release: after a publish that failed once the
+# release existed, or to point the short links back at an earlier version.
+# Runs only when dispatched from the default branch, and always runs the
+# deployment script from it. Set MODULE per repository.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v1.0.0)'
+        required: true
+        type: string
+
+concurrency:
+  group: publish-get-module
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  MODULE: bolt-whmcs
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: [self-hosted, adminbolt-ci]
+    environment: get-adminbolt
+    container:
+      image: debian:bookworm-slim
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PUBLISH_GET_SSH: root@37.27.40.58
+      PUBLISH_GET_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Validate tag
+        env:
+          RAW_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$RAW_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::bad tag '$RAW_TAG'"; exit 1; }
+      - name: Install the deployment tools
+        run: |
+          set -euo pipefail
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl gnupg jq rsync openssh-client unzip git
+          install -m 0755 -d /etc/apt/keyrings
+          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
+          chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+            > /etc/apt/sources.list.d/github-cli.list
+          apt-get update
+          apt-get install -y --no-install-recommends gh
+      - name: Check out the deployment script from the default branch
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Configure SSH
+        env:
+          GET_DEPLOY_SSH_KEY: ${{ secrets.GET_DEPLOY_SSH_KEY }}
+          GET_KNOWN_HOSTS: ${{ secrets.GET_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          [ -n "${GET_DEPLOY_SSH_KEY:-}" ] || { echo "::error::GET_DEPLOY_SSH_KEY is not available to this repository"; exit 1; }
+          [ -n "${GET_KNOWN_HOSTS:-}" ] || { echo "::error::GET_KNOWN_HOSTS is not available to this repository"; exit 1; }
+          install -d -m 700 /tmp/ssh
+          printf '%s\n' "$GET_DEPLOY_SSH_KEY" > /tmp/ssh/id_ed25519
+          chmod 600 /tmp/ssh/id_ed25519
+          printf '%s\n' "$GET_KNOWN_HOSTS" > /tmp/ssh/known_hosts
+          echo "PUBLISH_GET_SSH_OPTS=-i /tmp/ssh/id_ed25519 -o BatchMode=yes -o IdentitiesOnly=yes -o UserKnownHostsFile=/tmp/ssh/known_hosts" >> "$GITHUB_ENV"
+      - name: Publish
+        env:
+          TAG: ${{ inputs.tag }}
+        run: ./scripts/publish-module-get.sh "$MODULE" "$TAG"
+      - name: Roll back on failure
+        if: failure() || cancelled()
+        run: |
+          [ -f /tmp/ssh/id_ed25519 ] || exit 0
+          ./scripts/publish-module-get.sh "$MODULE" --rollback "$PUBLISH_GET_RUN_ID" || true
+      - name: Remove the SSH key
+        if: always()
+        run: rm -rf /tmp/ssh
