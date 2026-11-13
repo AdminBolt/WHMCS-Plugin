@@ -6,11 +6,11 @@ class ChangePassword extends AbstractAction
 {
     public function resellerExecute(): string
     {
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $api = $this->getApiInstance();
 
-        $existing = $api->get('/api/resellers/' . $resellerId) ?? [];
+        $existing = $this->verifiedReseller;
 
         $api->put('/api/resellers/' . $resellerId, [
             'name' => $this->params['clientsdetails']['fullname'] ?? ($existing['name'] ?? ''),
@@ -24,7 +24,7 @@ class ChangePassword extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->post('/api/hosting-accounts/' . $hostingAccountId . '/change-password', [

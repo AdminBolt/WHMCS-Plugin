@@ -2,10 +2,10 @@
 
 /**
  * Shared hosting: an empty Hosting Account ID is recovered only from the one
- * panel account with the service's domain and username, and Terminate and
- * Suspend check the account's username first. Scenario: Create for "shopb"
+ * panel account with the service's domain and username. Scenario: Create for "shopb"
  * failed (username taken by another customer's "shopb"), so the service has
- * no ID; no command may touch the other customer's account.
+ * no ID; no command may touch the other customer's account. Commands that act
+ * on the account (all but Change Package) also check the account's username.
  * Run: php tests/SharedAccountLookupTest.php
  */
 
@@ -103,8 +103,9 @@ $api = $panel([$otherCustomer]);
 $error = (string) error_of(fn() => with_api(new SuspendAccount(array_replace($service, ['domain' => ''])), $api)->execute());
 check(str_contains($error, 'no domain and username') && $api->calls === [], 'no domain: no panel call');
 
-// 6. Stored ID pointing at another username: Terminate and Suspend refuse after reading the account.
-foreach(['Terminate' => TerminateAccount::class, 'Suspend' => SuspendAccount::class] as $name => $class)
+// 6. Stored ID of another customer's account (33 typed instead of 23): every command that acts on the
+//    account refuses after reading it, so nothing is sent (no login link, no password change).
+foreach(array_diff_key($commands, ['ChangePackage' => true]) as $name => $class)
 {
     $api = $panel([$otherCustomer]);
     $error = (string) error_of(fn() => with_api(new $class(array_replace($service, ['username' => 'shopc', 'customfields' => ['hostingAccountId' => '33']])), $api)->execute());
@@ -117,10 +118,10 @@ $own = array_replace($service, ['customfields' => ['hostingAccountId' => '33']])
 $expected = [
     'Terminate' => ['GET /api/hosting-accounts/33', 'DELETE /api/hosting-accounts/33'],
     'Suspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/suspend'],
-    'Unsuspend' => ['POST /api/hosting-accounts/33/unsuspend'],
+    'Unsuspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/unsuspend'],
     'ChangePackage' => ['PUT /api/hosting-accounts/33'],
-    'ChangePassword' => ['POST /api/hosting-accounts/33/change-password'],
-    'SSO' => ['POST /api/hosting-accounts/33/generate-sso-token'],
+    'ChangePassword' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/change-password'],
+    'SSO' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/generate-sso-token'],
 ];
 foreach($commands as $name => $class)
 {

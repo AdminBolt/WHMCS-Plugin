@@ -78,12 +78,12 @@ $api = $answer(null, new ApiException('API error: CloudLinux is not installed on
 $error = error_of(fn() => with_api(new ChangePackage(array_replace($base, $empty, ['configoption4' => '100'])), $api)->execute());
 check(str_contains((string) $error, 'CloudLinux is not installed'), 'message-only 422 reason: ' . $error);
 
-// 9. Reseller login: stored reseller ID, panel link returned to WHMCS.
-$api = $answer(['message' => 'ok', 'sso_url' => 'https://panel.example.test/reseller/sso/abc', 'token' => 'abc']);
+// 9. Reseller login: stored reseller ID, checked against the panel username, panel link returned to WHMCS.
+$api = $answer(['username' => 'resel1', 'message' => 'ok', 'sso_url' => 'https://panel.example.test/reseller/sso/abc', 'token' => 'abc']);
 $result = with_api(new ServiceSingleSignOn($base), $api)->execute();
 check($result === ['success' => true, 'redirectTo' => 'https://panel.example.test/reseller/sso/abc'], 'reseller login returns the panel link');
-check($api->endpoints() === ['POST /api/resellers/7/generate-sso-token'], 'reseller login uses the stored reseller ID only');
-$api = $answer(['message' => 'x']);
+check($api->endpoints() === ['GET /api/resellers/7', 'POST /api/resellers/7/generate-sso-token'], 'reseller login uses the stored reseller ID only');
+$api = $answer(['username' => 'resel1', 'message' => 'x']);
 check(str_contains((string) error_of(fn() => with_api(new ServiceSingleSignOn($base), $api)->execute()), 'sign-in link'), 'missing link is an error');
 
 // 9b. A filled value that is not a whole number stops Create and Change Package before any panel call, naming the setting.
@@ -106,11 +106,11 @@ foreach([
 check(str_contains($options['Maximum Accounts']['Description'], 'save the product'), 'settings tell to save the product after switching type');
 
 // 10. Shared products unchanged.
-$shared = ['producttype' => 'hostingaccount', 'configoption1' => '3', 'configoption2' => 'on', 'customfields' => ['hostingAccountId' => '5'], 'serviceid' => 0, 'packageid' => 0];
+$shared = ['producttype' => 'hostingaccount', 'username' => 'shop5', 'configoption1' => '3', 'configoption2' => 'on', 'customfields' => ['hostingAccountId' => '5'], 'serviceid' => 0, 'packageid' => 0];
 $api = $answer();
 with_api(new ChangePackage($shared), $api)->execute();
 check($api->calls === [['PUT /api/hosting-accounts/5', ['hosting_plan_id' => '3', 'ssh_access' => true]]], 'shared package change unchanged');
-$api = $answer(['sso_url' => 'u']);
-check(with_api(new ServiceSingleSignOn($shared), $api)->execute() === ['success' => true, 'redirectTo' => 'u'] && $api->endpoints() === ['POST /api/hosting-accounts/5/generate-sso-token'], 'shared login unchanged');
+$api = $answer(['username' => 'shop5', 'sso_url' => 'u']);
+check(with_api(new ServiceSingleSignOn($shared), $api)->execute() === ['success' => true, 'redirectTo' => 'u'] && $api->endpoints() === ['GET /api/hosting-accounts/5', 'POST /api/hosting-accounts/5/generate-sso-token'], 'shared login: username checked, then link');
 
 tests_done();

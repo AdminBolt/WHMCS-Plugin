@@ -10,7 +10,7 @@ class UnsuspendAccount extends AbstractAction
      */
     public function resellerExecute(): string
     {
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $api = $this->getApiInstance();
         $api->post('/api/resellers/' . $resellerId . '/unsuspend');
@@ -20,7 +20,7 @@ class UnsuspendAccount extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->post('/api/hosting-accounts/' . $hostingAccountId . '/unsuspend');

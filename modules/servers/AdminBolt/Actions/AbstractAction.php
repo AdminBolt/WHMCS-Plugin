@@ -11,6 +11,11 @@ abstract class AbstractAction
 {
     protected ?AdminBolt $api = null;
 
+    /**
+     * The panel reseller read by getVerifiedResellerId().
+     */
+    protected array $verifiedReseller = [];
+
     public function __construct(
         protected array $params = []
     ) {}
@@ -123,8 +128,10 @@ abstract class AbstractAction
     }
 
     /**
-     * The hosting account ID, checked against the panel before a destructive
-     * command: the panel account must have this service's username.
+     * The hosting account ID, checked against the panel before any command
+     * that acts on the account (suspend, unsuspend, terminate, login,
+     * password change): the panel account must have this service's
+     * username, so a mistyped ID cannot reach another customer's account.
      */
     protected function getVerifiedHostingAccountId(): int
     {
@@ -170,9 +177,10 @@ abstract class AbstractAction
     }
 
     /**
-     * The stored reseller ID, checked against the panel before a destructive
-     * command: the panel reseller with that ID must have this service's
-     * username, so a mistyped Reseller ID cannot suspend or delete another
+     * The stored reseller ID, checked against the panel before any command
+     * that acts on the reseller (suspend, unsuspend, terminate, login,
+     * password change): the panel reseller with that ID must have this
+     * service's username, so a mistyped Reseller ID cannot reach another
      * reseller.
      */
     protected function getVerifiedResellerId(): int
@@ -190,6 +198,8 @@ abstract class AbstractAction
 
         if($serviceUsername === '' || strcasecmp($panelUsername, $serviceUsername) !== 0)
         {
+            $this->verifiedReseller = [];
+
             throw new Exception(sprintf(
                 'Reseller ID %d belongs to the panel reseller "%s", but this service\'s username is "%s". Nothing was changed in the panel; check the Reseller ID field and the username of this service.',
                 $resellerId,
@@ -197,6 +207,8 @@ abstract class AbstractAction
                 $serviceUsername
             ));
         }
+
+        $this->verifiedReseller = isset($reseller['username']) ? $reseller : (array) ($reseller['reseller'] ?? $reseller['data'] ?? []);
 
         return $resellerId;
     }

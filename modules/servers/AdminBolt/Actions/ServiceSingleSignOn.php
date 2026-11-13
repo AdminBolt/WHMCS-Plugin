@@ -9,7 +9,7 @@ class ServiceSingleSignOn extends AbstractAction
 {
     public function resellerExecute(): array
     {
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $api = $this->getApiInstance();
         $result = $this->withPanelReason(fn() => $api->post('/api/resellers/' . $resellerId . '/generate-sso-token'));
@@ -27,7 +27,7 @@ class ServiceSingleSignOn extends AbstractAction
 
     public function sharedExecute(): array
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $result = $api->post('/api/hosting-accounts/' . $hostingAccountId . '/generate-sso-token');

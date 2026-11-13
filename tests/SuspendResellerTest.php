@@ -43,7 +43,7 @@ check($api->calls === [['GET /api/resellers/7', null], ['POST /api/resellers/7/s
 $api = $suspendApi();
 $result = with_api(new UnsuspendAccount($reseller), $api)->execute();
 check($result === 'success', 'unsuspend returns success');
-check($api->calls === [['POST /api/resellers/7/unsuspend', null]], 'unsuspend endpoint');
+check($api->calls === [['GET /api/resellers/7', null], ['POST /api/resellers/7/unsuspend', null]], 'unsuspend endpoint');
 
 // 4. Panel errors are not swallowed (the module entry point returns them to WHMCS).
 foreach([SuspendAccount::class, UnsuspendAccount::class] as $class)
@@ -57,6 +57,6 @@ $shared = ['producttype' => 'hostingaccount', 'username' => 'shop21', 'customfie
 $api = $suspendApi();
 with_api(new SuspendAccount($shared), $api)->execute();
 with_api(new UnsuspendAccount($shared), $api)->execute();
-check($api->calls === [['GET /api/hosting-accounts/21', null], ['POST /api/hosting-accounts/21/suspend', null], ['POST /api/hosting-accounts/21/unsuspend', null]], 'shared products unchanged: ' . json_encode($api->calls));
+check($api->calls === [['GET /api/hosting-accounts/21', null], ['POST /api/hosting-accounts/21/suspend', null], ['GET /api/hosting-accounts/21', null], ['POST /api/hosting-accounts/21/unsuspend', null]], 'shared products unchanged: ' . json_encode($api->calls));
 
 tests_done();
