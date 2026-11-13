@@ -45,7 +45,8 @@ class ModuleLog
     }
 
     /**
-     * The parameters with every secret value replaced by asterisks.
+     * The parameters with every secret value replaced by asterisks. Objects
+     * (for example the WHMCS service model) are not printed, only their class.
      */
     public static function params(array $params): array
     {
@@ -54,6 +55,10 @@ class ModuleLog
             if(is_array($value))
             {
                 $params[$key] = self::params($value);
+            }
+            elseif(is_object($value))
+            {
+                $params[$key] = '[object ' . get_class($value) . ']';
             }
             elseif(is_string($key) && in_array(strtolower($key), self::SECRET_KEYS, true) && $value !== '' && $value !== null)
             {

@@ -88,6 +88,17 @@ foreach(['/api/hosting-accounts/21/generate-sso-token', '/api/resellers/7/genera
 }
 check(ModuleLog::text('{"url":"https://panel.example.test/docs"}') === '{"url":"https://panel.example.test/docs"}', 'a plain url without a token is kept');
 
+// 3c. Objects in the parameters (for example the WHMCS service model) are not printed.
+tests_reset();
+$model = new class {
+    public string $password = 'ObjPassw0rd-777';
+    protected string $serverSecret = 'ObjServerSecret-888';
+};
+ModuleLog::error('CreateAccount', $params + ['model' => $model], 'failed');
+$logged = $GLOBALS['moduleLog'][0][1] ?? '';
+check(!str_contains($logged, 'ObjPassw0rd-777') && !str_contains($logged, 'ObjServerSecret-888'), 'object properties not logged');
+check(str_contains($logged, '[model] => [object ') && str_contains($logged, '[username] => resellerb'), 'object replaced by a placeholder, other parameters kept');
+
 // 4. Short values are masked by key but not replaced in free text.
 check(ModuleLog::params(['password' => 'abc', 'domain' => 'abc.example.test'])['password'] === ModuleLog::MASK, 'short password masked by key');
 check(ModuleLog::text('abc.example.test', ['abc']) === 'abc.example.test', 'short value does not garble text');
