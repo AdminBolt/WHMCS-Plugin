@@ -10,7 +10,7 @@ class SuspendAccount extends AbstractAction
      */
     public function resellerExecute(): string
     {
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $reason = trim((string) ($this->params['suspendreason'] ?? ''));
 

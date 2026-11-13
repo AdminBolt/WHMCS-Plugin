@@ -19,7 +19,11 @@ $terminateApi = fn(array $accounts, array $failingIds = [], array $warningIds = 
     function(string $method, string $endpoint) use ($accounts, $failingIds, $warningIds) {
         if($method === 'GET')
         {
-            return $endpoint === '/api/hosting-accounts' ? $accounts : null;
+            return match($endpoint) {
+                '/api/hosting-accounts' => $accounts,
+                '/api/resellers/7' => ['id' => 7, 'username' => 'resellera'],
+                default => null,
+            };
         }
 
         if($method === 'DELETE' && preg_match('#^/api/hosting-accounts/(\d+)$#', $endpoint, $m))
@@ -48,7 +52,7 @@ $accounts = [
     ['id' => 31, 'username' => 'admins', 'domain' => 'admins.example.test', 'reseller_id' => null],
 ];
 
-$resellerParams = ['producttype' => 'reselleraccount', 'customfields' => ['resellerId' => '7']];
+$resellerParams = ['producttype' => 'reselleraccount', 'username' => 'resellera', 'customfields' => ['resellerId' => '7']];
 
 // 1. All accounts of the reseller are deleted, then the reseller; other accounts untouched.
 $GLOBALS['moduleLog'] = [];
@@ -56,6 +60,7 @@ $api = $terminateApi($accounts);
 $result = with_api(new TerminateAccount($resellerParams), $api)->execute();
 check($result === 'success', 'happy path returns success');
 check($api->endpoints() === [
+    'GET /api/resellers/7',
     'GET /api/hosting-accounts',
     'DELETE /api/hosting-accounts/11',
     'DELETE /api/hosting-accounts/12',
@@ -70,6 +75,7 @@ $api = $terminateApi($accounts, [12]);
 $error = error_of(fn() => with_api(new TerminateAccount($resellerParams), $api)->execute());
 check($error !== null, 'failure throws so WHMCS reports an error');
 check($api->endpoints() === [
+    'GET /api/resellers/7',
     'GET /api/hosting-accounts',
     'DELETE /api/hosting-accounts/11',
     'DELETE /api/hosting-accounts/12',
@@ -89,7 +95,7 @@ check(end($endpoints) === 'DELETE /api/resellers/7', 'retry deletes the reseller
 // 4. Reseller without accounts: only the reseller is deleted.
 $api = $terminateApi([$accounts[3]]);
 with_api(new TerminateAccount($resellerParams), $api)->execute();
-check($api->endpoints() === ['GET /api/hosting-accounts', 'DELETE /api/resellers/7'], 'reseller without accounts');
+check($api->endpoints() === ['GET /api/resellers/7', 'GET /api/hosting-accounts', 'DELETE /api/resellers/7'], 'reseller without accounts');
 
 // 5. Account deleted with a cleanup warning: continue, report the warning in the Module Log.
 $GLOBALS['moduleLog'] = [];
@@ -104,7 +110,7 @@ $api = new TestApi(function(string $method) {
     {
         throw new Exception('API error: This reseller has active hosting accounts.');
     }
-    return [];
+    return $method === 'GET' ? ['id' => 7, 'username' => 'resellera'] : [];
 });
 $error = error_of(fn() => with_api(new TerminateAccount($resellerParams), $api)->execute());
 check($error === 'API error: This reseller has active hosting accounts.', 'reseller refusal reaches WHMCS');

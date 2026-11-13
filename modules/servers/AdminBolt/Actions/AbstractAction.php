@@ -131,6 +131,38 @@ abstract class AbstractAction
         return (int) $id;
     }
 
+    /**
+     * The stored reseller ID, checked against the panel before a destructive
+     * command: the panel reseller with that ID must have this service's
+     * username, so a mistyped Reseller ID cannot suspend or delete another
+     * reseller.
+     */
+    protected function getVerifiedResellerId(): int
+    {
+        $resellerId = $this->getResellerId();
+        $serviceUsername = trim((string) ($this->params['username'] ?? ''));
+
+        $reseller = $this->getApiInstance()->get('/api/resellers/' . $resellerId);
+        $panelUsername = '';
+
+        if(is_array($reseller))
+        {
+            $panelUsername = (string) ($reseller['username'] ?? $reseller['reseller']['username'] ?? $reseller['data']['username'] ?? '');
+        }
+
+        if($serviceUsername === '' || strcasecmp($panelUsername, $serviceUsername) !== 0)
+        {
+            throw new Exception(sprintf(
+                'Reseller ID %d belongs to the panel reseller "%s", but this service\'s username is "%s". Nothing was changed in the panel; check the Reseller ID field and the username of this service.',
+                $resellerId,
+                $panelUsername,
+                $serviceUsername
+            ));
+        }
+
+        return $resellerId;
+    }
+
     protected function extractList(mixed $response): array
     {
         if(!is_array($response))

@@ -28,6 +28,7 @@ $panelWithResellerA = fn() => new TestApi(function(string $method, string $endpo
         'GET /api/resellers' => [['id' => 7, 'username' => 'resellera', 'email' => 'client@example.test']],
         'GET /api/hosting-accounts' => [['id' => 11, 'username' => 'shopa', 'domain' => 'shop-a.example.test', 'reseller_id' => 7]],
         'GET /api/resellers/7' => ['id' => 7, 'name' => 'Client', 'username' => 'resellera', 'email' => 'client@example.test'],
+        'GET /api/resellers/9' => ['id' => 9, 'username' => 'resellerb'],
         default => ['sso_url' => 'https://panel.example.test/reseller/sso/a'],
     };
 });
@@ -77,7 +78,7 @@ foreach(['' => 'empty', '  ' => 'blank', 'abc' => 'not a number', '0' => 'zero']
 // 2. With the stored ID the commands act on that reseller only.
 $api = $panelWithResellerA();
 with_api(new SuspendAccount(array_replace($serviceB, ['customfields' => ['resellerId' => '9']])), $api)->execute();
-check($api->endpoints() === ['POST /api/resellers/9/suspend'], 'stored ID is used as is: ' . json_encode($api->endpoints()));
+check($api->endpoints() === ['GET /api/resellers/9', 'POST /api/resellers/9/suspend'], 'stored ID is used as is: ' . json_encode($api->endpoints()));
 
 // 3. Create stores the reseller ID from the create response, without a lookup.
 Capsule::reset();

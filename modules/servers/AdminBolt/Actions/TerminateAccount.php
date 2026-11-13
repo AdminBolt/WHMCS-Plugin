@@ -14,7 +14,7 @@ class TerminateAccount extends AbstractAction
      */
     public function resellerExecute(): string
     {
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $api = $this->getApiInstance();
 

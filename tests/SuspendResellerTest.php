@@ -12,27 +12,32 @@ use ModulesGarden\AdminBolt\Actions\UnsuspendAccount;
 
 tests_reset();
 
-$suspendApi = fn(?string $failWith = null) => new TestApi(function() use ($failWith) {
+$suspendApi = fn(?string $failWith = null) => new TestApi(function(string $method) use ($failWith) {
     if($failWith !== null)
     {
         throw new Exception($failWith);
     }
 
+    if($method === 'GET')
+    {
+        return ['id' => 7, 'username' => 'resellera'];
+    }
+
     return ['id' => 7, 'suspended' => true];
 });
 
-$reseller = ['producttype' => 'reselleraccount', 'customfields' => ['resellerId' => '7']];
+$reseller = ['producttype' => 'reselleraccount', 'username' => 'resellera', 'customfields' => ['resellerId' => '7']];
 
 // 1. Suspend calls the panel with the WHMCS suspend reason.
 $api = $suspendApi();
 $result = with_api(new SuspendAccount($reseller + ['suspendreason' => 'Overdue on Payment']), $api)->execute();
 check($result === 'success', 'suspend returns success');
-check($api->calls === [['POST /api/resellers/7/suspend', ['reason' => 'Overdue on Payment']]], 'suspend endpoint and reason: ' . json_encode($api->calls));
+check($api->calls === [['GET /api/resellers/7', null], ['POST /api/resellers/7/suspend', ['reason' => 'Overdue on Payment']]], 'suspend endpoint and reason: ' . json_encode($api->calls));
 
 // 2. Suspend without a reason sends no body.
 $api = $suspendApi();
 with_api(new SuspendAccount($reseller + ['suspendreason' => '  ']), $api)->execute();
-check($api->calls === [['POST /api/resellers/7/suspend', null]], 'suspend without reason');
+check($api->calls === [['GET /api/resellers/7', null], ['POST /api/resellers/7/suspend', null]], 'suspend without reason');
 
 // 3. Unsuspend calls the panel.
 $api = $suspendApi();
