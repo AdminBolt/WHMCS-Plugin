@@ -7,24 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Upgrade note:** before upgrading, list the reseller services whose Reseller ID field is empty (Clients > Products/Services, reseller products, custom field Reseller ID) and enter the panel's reseller ID in each. From this version reseller commands no longer look the reseller up, so on such a service every command fails, including the automatic suspension of overdue services.
+
 ### Added
 
 - Reseller products have module settings for maximum accounts, disk and bandwidth limits and the CloudLinux LVE limits, applied when the reseller is created and on upgrade or downgrade (a limit the panel refuses fails the command with the panel's reason); the client area and the admin area have a login button that opens the reseller panel (AB-2540).
 
 ### Changed
 
-- Reseller limit settings take whole numbers only; any other value (for example "on" kept from a shared product's settings) is ignored and not sent to the panel. After switching a product's type to reseller, save the product and check the settings, because values from the previous type are reused by position.
-- Shared hosting commands also show the panel's reason on failure: the error now reads "API error: <panel message>", or "API error (HTTP <code>)" when the panel gives no reason, instead of a bare "API error".
+- A reseller limit setting must be a whole number or empty. Empty settings are not sent; any other value (for example "10240MB", or "on" kept from a shared product's settings) stops Create and Change Package before the panel is called, with a message naming the setting. After switching a product's type to reseller, save the product and check the settings, because values from the previous type are reused by position.
+- Panel errors now carry the panel's reason for every command, shared hosting included: the error reads "API error: <panel message>" (the panel's `message` field was not read before), or "API error (HTTP <code>)" when the panel gives no reason, instead of a bare "API error".
 
 ### Fixed
 
 - The daily usage update no longer stops with a PHP fatal error (`UsageUpdate` method signature conflict with `AbstractAction`); an error on one service is logged in the Module Log and the remaining services are still updated (AB-2537).
-- Terminate on a reseller product now deletes every hosting account of the reseller through the regular account deletion before deleting the reseller. It stops at the first account that cannot be deleted, keeps the reseller and names that account in the error and the Module Log, so Terminate can be run again. Panel errors returned under `message` are now shown instead of a bare "API error" (AB-2539).
+- Terminate on a reseller product now deletes every hosting account of the reseller through the regular account deletion before deleting the reseller. It stops at the first account that cannot be deleted, keeps the reseller and names that account in the error and the Module Log, so Terminate can be run again (AB-2539).
 - Suspend and Unsuspend on a reseller product now call the panel (`POST /api/resellers/{id}/suspend` with the WHMCS suspend reason, `POST /api/resellers/{id}/unsuspend`) and report the panel error in WHMCS and the Module Log instead of always returning success. Requires AdminBolt panel 1.9.6 or newer; older panels have no reseller suspension and the command fails with the panel's error (AB-2538).
 
 ### Security
 
-- Reseller commands (Change Package, login, Suspend, Unsuspend, Terminate, Change Password) act only on the reseller ID stored in the service's Reseller ID field. The fallback lookup by username or e-mail added in 0.0.2 is removed for resellers: a client with several resellers sharing one e-mail could have a command run on another of their resellers. A service without a stored reseller ID now fails with a clear message and the panel is not called; set the Reseller ID field to the panel's reseller ID. Create stores the ID from the panel's create response and fails clearly when the response has none. Shared hosting services keep the recovery by domain or username.
+- Reseller commands (Change Package, login, Suspend, Unsuspend, Terminate, Change Password) act only on the reseller ID stored in the service's Reseller ID field. Versions 0.0.2 and 0.0.3 filled an empty Reseller ID by searching all resellers in the panel for the service's username or the client's e-mail address, so a service whose reseller was never created (for example because the username was taken) could act on another customer's reseller: open its panel, change its limits, suspend it or terminate it with all its accounts. If you ran reseller commands on services with an empty Reseller ID, check the Module Log for calls to `/api/resellers/{id}` with an unexpected ID. A service without a stored reseller ID now fails with a clear message and the panel is not called. Create stores the ID from the panel's create response; when it cannot, the message says the reseller exists and must not be created again. Terminate and Suspend also refuse when the panel reseller's username does not match the service username, so a mistyped Reseller ID cannot hit another reseller. Shared hosting services keep the recovery by domain or username.
 
 ## [0.0.3] - 2026-09-14
 
