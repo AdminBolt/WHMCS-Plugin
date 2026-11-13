@@ -60,8 +60,20 @@ class AdminBolt
 
         if($httpCode != 200 && $httpCode != 201 && $httpCode != 204)
         {
+            // The panel reports errors under "message"; "error" is kept for older responses.
+            $errorMessage = 'API error (HTTP ' . $httpCode . ')';
+
+            foreach(['error', 'message'] as $key)
+            {
+                if(is_array($responseBodyDecoded) && isset($responseBodyDecoded[$key]) && is_string($responseBodyDecoded[$key]) && $responseBodyDecoded[$key] !== '')
+                {
+                    $errorMessage = 'API error: ' . $responseBodyDecoded[$key];
+                    break;
+                }
+            }
+
             throw new ApiException(
-                !empty($responseBodyDecoded['error']) ? ('API error: ' . $responseBodyDecoded['error']) : 'API error',
+                $errorMessage,
                 (int) $httpCode,
                 is_array($responseBodyDecoded) ? $responseBodyDecoded : null
             );
