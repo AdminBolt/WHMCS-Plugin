@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\AdminBolt;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
 use Exception;
@@ -88,7 +89,7 @@ class ConfigOptions extends AbstractAction
             return [$response];
         }
 
-        \logModuleCall('AdminBolt', 'ConfigOptions/hostingPlans', '', json_encode($response), 'Unexpected hosting-plans response shape');
+        ModuleLog::call('ConfigOptions/hostingPlans', '', json_encode($response), 'Unexpected hosting-plans response shape');
 
         return [];
     }

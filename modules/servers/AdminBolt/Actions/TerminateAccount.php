@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use Exception;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 class TerminateAccount extends AbstractAction
 {
@@ -73,7 +74,7 @@ class TerminateAccount extends AbstractAction
             $summary .= ' Accounts deleted with unfinished cleanup steps: ' . implode(' ', $warnings);
         }
 
-        \logModuleCall('AdminBolt', 'TerminateAccount', 'reseller #' . $resellerId, $summary, $summary);
+        ModuleLog::call('TerminateAccount', 'reseller #' . $resellerId, $summary);
 
         return 'success';
     }

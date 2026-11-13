@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use Exception;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 use WHMCS\Database\Capsule;
 use Carbon\Carbon;
 
@@ -27,7 +28,7 @@ class UsageUpdate extends AbstractAction
             }
             catch(\Throwable $e)
             {
-                \logModuleCall('AdminBolt', 'UsageUpdate', 'Service ID: ' . $service->id, $e->getMessage(), $e->getMessage());
+                ModuleLog::call('UsageUpdate', 'Service ID: ' . $service->id, $e->getMessage());
             }
         }
 

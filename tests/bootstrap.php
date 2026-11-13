@@ -108,7 +108,7 @@ namespace {
 
     function logModuleCall($module, $action, $request, $response, $processed = null, $replace = []): void
     {
-        $GLOBALS['moduleLog'][] = [$action, $request, $response];
+        $GLOBALS['moduleLog'][] = [$action, $request, $response, $processed, $replace];
     }
 
     /**

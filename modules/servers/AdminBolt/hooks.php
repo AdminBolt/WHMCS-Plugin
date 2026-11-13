@@ -40,7 +40,7 @@ add_hook('ClientAreaPrimarySidebar', 1, function (Item $primarySidebar): void {
     }
     catch (Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ClientAreaPrimarySidebar', "", $e->getMessage(), $e->getMessage());
+        \ModulesGarden\AdminBolt\Helpers\ModuleLog::call('ClientAreaPrimarySidebar', '', $e->getMessage());
     }
 });
 

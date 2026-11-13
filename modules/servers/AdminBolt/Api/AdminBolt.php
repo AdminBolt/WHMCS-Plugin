@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Api;
 
 use Exception;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 class AdminBolt
 {
@@ -52,7 +53,7 @@ class AdminBolt
         $responseHeaderSize = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
         $responseBody = substr($response, $responseHeaderSize);
 
-        \logModuleCall('AdminBolt', $endpoint, $request, $response, $response);
+        $this->logCall($endpoint, $request, (string) $response, $content);
 
         curl_close($curl);
 
@@ -80,6 +81,21 @@ class AdminBolt
         }
 
         return $responseBodyDecoded;
+    }
+
+    /**
+     * Module Log entry of an API call, without the API key, the API secret
+     * and passwords sent in the body.
+     */
+    protected function logCall(string $endpoint, string $request, string $response, ?array $content): void
+    {
+        ModuleLog::call(
+            $endpoint,
+            $request,
+            $response,
+            $response,
+            array_merge([$this->apiKey, $this->apiSecret], ModuleLog::secretsOf($content ?? []))
+        );
     }
 
     public function get(string $endpoint): ?array
