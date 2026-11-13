@@ -93,7 +93,7 @@ check(Capsule::$writes === [['update', 'tblcustomfieldsvalues', ['id' => 501], [
 Capsule::reset();
 $api = new TestApi(fn(string $method, string $endpoint) => $endpoint === '/api/resellers' && $method === 'POST' ? ['message' => 'created'] : [['id' => 7, 'username' => 'resellerb', 'email' => 'client@example.test']]);
 $error = error_of(fn() => with_api(new CreateAccount($serviceB), $api)->execute());
-check(is_string($error) && str_contains($error, 'resellerId'), 'create without an ID in the response fails clearly: ' . var_export($error, true));
+check(is_string($error) && str_contains($error, 'Reseller ID'), 'create without an ID in the response fails clearly: ' . var_export($error, true));
 check($api->endpoints() === ['POST /api/resellers'] && Capsule::$writes === [], 'no lookup and nothing stored after such a create');
 
 // 5. Shared products keep the hosting account recovery by domain or username.
