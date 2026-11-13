@@ -1,0 +1,106 @@
+<?php
+
+/**
+ * Module Log entries carry no secrets: server API key and secret, access
+ * hash, account passwords. Run: php tests/ModuleLogTest.php
+ */
+
+require_once __DIR__ . '/bootstrap.php';
+
+use ModulesGarden\AdminBolt\Api\AdminBolt;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
+
+tests_reset();
+
+$apiKey = 'ApiKeyId-123';
+$apiSecret = 'Sup3rSecretApiValue';
+$accessHash = 'hash-xyz-789';
+$clientPassword = 'Cl"ient/Pass!42';
+$secrets = [$apiKey, $apiSecret, $accessHash, $clientPassword, json_encode($clientPassword), substr(json_encode($clientPassword), 1, -1)];
+
+$leaks = function(array $entry) use ($secrets): array {
+    $found = [];
+    foreach(array_slice($entry, 1, 3) as $text)
+    {
+        foreach($secrets as $secret)
+        {
+            if(str_contains((string) $text, $secret))
+            {
+                $found[] = $secret;
+            }
+        }
+    }
+    return array_unique($found);
+};
+
+$params = [
+    'producttype' => 'reselleraccount',
+    'serviceid' => 52,
+    'serverhttpprefix' => 'https',
+    'serverhostname' => 'panel.example.test',
+    'serverport' => '8443',
+    'serverusername' => $apiKey,
+    'serverpassword' => $apiSecret,
+    'serveraccesshash' => $accessHash,
+    'username' => 'resellerb',
+    'password' => $clientPassword,
+    'customfields' => ['resellerId' => ''],
+];
+
+// 1. A failed module command logs its parameters without secrets.
+$result = AdminBolt_SuspendAccount($params);
+$entry = $GLOBALS['moduleLog'][0] ?? [];
+check(str_contains($result, 'no AdminBolt reseller ID'), 'command failed as expected: ' . $result);
+check(($entry[0] ?? '') === 'SuspendAccount' && str_contains($entry[1] ?? '', 'resellerb'), 'parameters are logged');
+check($leaks($entry) === [], 'no secret in the command log: ' . json_encode($leaks($entry)));
+check(substr_count($entry[1] ?? '', ModuleLog::MASK) === 4, 'four secret parameters masked');
+check(array_diff([$apiKey, $apiSecret, $accessHash, $clientPassword], $entry[4] ?? []) === [], 'secret values passed to WHMCS for masking');
+
+// 2. A secret inside an error message is masked too.
+tests_reset();
+ModuleLog::error('ChangePassword', $params, 'Request failed with ' . $apiSecret);
+check($leaks($GLOBALS['moduleLog'][0]) === [] && str_contains($GLOBALS['moduleLog'][0][2], 'Request failed with ' . ModuleLog::MASK), 'secret in the message masked');
+
+// 3. An API call: request headers and a password in the body are masked; the rest stays.
+tests_reset();
+$client = new AdminBolt('https://panel.example.test:8443', $apiKey, $apiSecret);
+$content = ['name' => 'Client', 'username' => 'resellerb', 'password' => $clientPassword];
+$request = "POST /api/resellers HTTP/1.1\r\nHost: panel.example.test:8443\r\nContent-Type: application/json\r\nX-API-Key: $apiKey\r\nX-API-Secret: $apiSecret\r\n\r\n" . json_encode($content, JSON_PRETTY_PRINT);
+$response = "HTTP/1.1 422 Unprocessable Content\r\n\r\n" . json_encode(['message' => 'The username has already been taken.']);
+(function() use ($request, $response, $content) { $this->logCall('/api/resellers', $request, $response, $content); })->call($client);
+$entry = $GLOBALS['moduleLog'][0] ?? [];
+check(($entry[0] ?? '') === '/api/resellers', 'API call logged under its endpoint');
+check($leaks($entry) === [], 'no secret in the API call log: ' . json_encode($leaks($entry)));
+check(str_contains($entry[1] ?? '', "X-API-Key: " . ModuleLog::MASK . "\r\n") && str_contains($entry[1] ?? '', "X-API-Secret: " . ModuleLog::MASK . "\r\n"), 'headers masked');
+check(str_contains($entry[1] ?? '', '"password": "' . ModuleLog::MASK . '"') && str_contains($entry[1] ?? '', '"username": "resellerb"'), 'password field masked, other fields kept');
+check(str_contains($entry[2] ?? '', 'already been taken'), 'panel response kept');
+check(array_diff([$apiKey, $apiSecret, $clientPassword], $entry[4] ?? []) === [], 'API key, secret and password passed to WHMCS for masking');
+
+// 3b. The single-use panel login link in an SSO response is masked (shared and reseller).
+foreach(['/api/hosting-accounts/21/generate-sso-token', '/api/resellers/7/generate-sso-token'] as $endpoint)
+{
+    tests_reset();
+    $body = json_encode(['message' => 'SSO token generated', 'sso_url' => 'https://panel.example.test/sso/login?token=OneTimeTok3n', 'url' => 'https://panel.example.test/sso/OneTimeTok3n', 'token' => 'OneTimeTok3n', 'sso_token' => 'OneTimeTok3n', 'expires_at' => '2026-11-13T10:00:00Z']);
+    (function() use ($endpoint, $body) { $this->logCall($endpoint, "POST $endpoint HTTP/1.1\r\n\r\n", "HTTP/1.1 200 OK\r\n\r\n" . $body, null); })->call($client);
+    $entry = $GLOBALS['moduleLog'][0] ?? [];
+    check(!str_contains(json_encode(array_slice($entry, 1, 3)), 'OneTimeTok3n'), "login link and token masked for $endpoint: " . ($entry[2] ?? ''));
+    check(substr_count($entry[2] ?? '', ModuleLog::MASK) === 4 && str_contains($entry[2] ?? '', 'expires_at') && str_contains($entry[2] ?? '', 'SSO token generated'), "other response fields kept for $endpoint");
+}
+check(ModuleLog::text('{"url":"https://panel.example.test/docs"}') === '{"url":"https://panel.example.test/docs"}', 'a plain url without a token is kept');
+
+// 3c. Objects in the parameters (for example the WHMCS service model) are not printed.
+tests_reset();
+$model = new class {
+    public string $password = 'ObjPassw0rd-777';
+    protected string $serverSecret = 'ObjServerSecret-888';
+};
+ModuleLog::error('CreateAccount', $params + ['model' => $model], 'failed');
+$logged = $GLOBALS['moduleLog'][0][1] ?? '';
+check(!str_contains($logged, 'ObjPassw0rd-777') && !str_contains($logged, 'ObjServerSecret-888'), 'object properties not logged');
+check(str_contains($logged, '[model] => [object ') && str_contains($logged, '[username] => resellerb'), 'object replaced by a placeholder, other parameters kept');
+
+// 4. Short values are masked by key but not replaced in free text.
+check(ModuleLog::params(['password' => 'abc', 'domain' => 'abc.example.test'])['password'] === ModuleLog::MASK, 'short password masked by key');
+check(ModuleLog::text('abc.example.test', ['abc']) === 'abc.example.test', 'short value does not garble text');
+
+tests_done();

@@ -3,12 +3,18 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\AdminBolt;
+use ModulesGarden\AdminBolt\Api\ApiException;
 use WHMCS\Database\Capsule;
 use Exception;
 
 abstract class AbstractAction
 {
     protected ?AdminBolt $api = null;
+
+    /**
+     * The panel reseller read by getVerifiedResellerId().
+     */
+    protected array $verifiedReseller = [];
 
     public function __construct(
         protected array $params = []
@@ -48,6 +54,30 @@ abstract class AbstractAction
         return $this->api;
     }
 
+    /**
+     * Runs a panel API call and, when the panel refuses it, fails with the
+     * panel's own reason (for example a 422 limit below the reseller's
+     * current allocation) instead of a bare "API error".
+     */
+    protected function withPanelReason(callable $call): mixed
+    {
+        try
+        {
+            return $call();
+        }
+        catch(ApiException $e)
+        {
+            throw new Exception($e->getPanelReason(), 0, $e);
+        }
+    }
+
+    /**
+     * The hosting account ID stored on the service. When it is empty, it is
+     * recovered only from a panel account whose domain and username both
+     * equal the service's (case-insensitive), and only when exactly one
+     * account matches; otherwise the command fails before any change, so it
+     * cannot reach another customer's account with the same username.
+     */
     protected function getHostingAccountId(): int
     {
         $id = (int) ($this->params['customfields']['hostingAccountId'] ?? 0);
@@ -60,88 +90,127 @@ abstract class AbstractAction
         $domain = trim((string) ($this->params['domain'] ?? ''));
         $username = trim((string) ($this->params['username'] ?? ''));
 
-        if($domain === '' && $username === '')
+        if($domain === '' || $username === '')
         {
-            throw new Exception('Hosting Account ID is not set on this service and there is no domain or username to recover it.');
+            throw new Exception("This service has no AdminBolt hosting account ID and no domain and username to find it; set the Hosting Account ID field to the panel's hosting account ID.");
         }
 
         $api = $this->getApiInstance();
-        $accounts = $this->extractList($api->get('/api/hosting-accounts'));
+        $matches = [];
 
-        foreach($accounts as $account)
+        foreach($this->extractList($api->get('/api/hosting-accounts')) as $account)
         {
             if(!is_array($account) || !isset($account['id']))
             {
                 continue;
             }
 
-            $accountDomain = (string) ($account['domain'] ?? '');
-            $accountUsername = (string) ($account['username'] ?? '');
-
-            $domainMatch = $domain !== '' && strcasecmp($accountDomain, $domain) === 0;
-            $usernameMatch = $username !== '' && strcasecmp($accountUsername, $username) === 0;
-
-            if($domainMatch || $usernameMatch)
+            if(strcasecmp((string) ($account['domain'] ?? ''), $domain) === 0
+                && strcasecmp((string) ($account['username'] ?? ''), $username) === 0)
             {
-                $id = (int) $account['id'];
-                $this->saveCustomFieldValue('hostingAccountId', $id);
-                return $id;
+                $matches[] = (int) $account['id'];
             }
         }
 
-        throw new Exception(sprintf(
-            "Hosting Account ID is not set on this service and no AdminBolt account was found (domain='%s', username='%s').",
-            $domain,
-            $username
-        ));
+        if(count($matches) !== 1)
+        {
+            throw new Exception(sprintf(
+                "This service has no AdminBolt hosting account ID and %s panel account has the domain '%s' and the username '%s'; nothing was changed. Set the Hosting Account ID field to the panel's hosting account ID.",
+                $matches ? 'more than one' : 'no',
+                $domain,
+                $username
+            ));
+        }
+
+        $this->saveCustomFieldValue('hostingAccountId', $matches[0]);
+
+        return $matches[0];
     }
 
+    /**
+     * The hosting account ID, checked against the panel before any command
+     * that acts on the account (package change, suspend, unsuspend,
+     * terminate, login, password change): the panel account must have this service's
+     * username, so a mistyped ID cannot reach another customer's account.
+     */
+    protected function getVerifiedHostingAccountId(): int
+    {
+        $hostingAccountId = $this->getHostingAccountId();
+        $serviceUsername = trim((string) ($this->params['username'] ?? ''));
+
+        $account = $this->getApiInstance()->get('/api/hosting-accounts/' . $hostingAccountId);
+        $panelUsername = '';
+
+        if(is_array($account))
+        {
+            $panelUsername = (string) ($account['username'] ?? $account['hostingAccount']['username'] ?? $account['data']['username'] ?? '');
+        }
+
+        if($serviceUsername === '' || strcasecmp($panelUsername, $serviceUsername) !== 0)
+        {
+            throw new Exception(sprintf(
+                'Hosting account ID %d belongs to the panel account "%s", but this service\'s username is "%s". Nothing was changed in the panel; check the Hosting Account ID field and the username of this service.',
+                $hostingAccountId,
+                $panelUsername,
+                $serviceUsername
+            ));
+        }
+
+        return $hostingAccountId;
+    }
+
+    /**
+     * The reseller ID stored on the service. It is never looked up by
+     * username or e-mail: a client can have several resellers with the same
+     * e-mail, and a match would act on another reseller of the client.
+     */
     protected function getResellerId(): int
     {
-        $id = (int) ($this->params['customfields']['resellerId'] ?? 0);
+        $id = trim((string) ($this->params['customfields']['resellerId'] ?? ''));
 
-        if($id > 0)
+        if(!ctype_digit($id) || (int) $id <= 0)
         {
-            return $id;
+            throw new Exception("This service has no AdminBolt reseller ID; set the resellerId field to the panel's reseller ID.");
         }
 
-        $username = trim((string) ($this->params['username'] ?? ''));
-        $email = trim((string) ($this->params['clientsdetails']['email'] ?? ''));
+        return (int) $id;
+    }
 
-        if($username === '' && $email === '')
+    /**
+     * The stored reseller ID, checked against the panel before any command
+     * that acts on the reseller (package change, suspend, unsuspend,
+     * terminate, login, password change): the panel reseller with that ID must have this
+     * service's username, so a mistyped Reseller ID cannot reach another
+     * reseller.
+     */
+    protected function getVerifiedResellerId(): int
+    {
+        $resellerId = $this->getResellerId();
+        $serviceUsername = trim((string) ($this->params['username'] ?? ''));
+
+        $reseller = $this->getApiInstance()->get('/api/resellers/' . $resellerId);
+        $panelUsername = '';
+
+        if(is_array($reseller))
         {
-            throw new Exception('Reseller ID is not set on this service and there is no username or email to recover it.');
+            $panelUsername = (string) ($reseller['username'] ?? $reseller['reseller']['username'] ?? $reseller['data']['username'] ?? '');
         }
 
-        $api = $this->getApiInstance();
-        $resellers = $this->extractList($api->get('/api/resellers'));
-
-        foreach($resellers as $reseller)
+        if($serviceUsername === '' || strcasecmp($panelUsername, $serviceUsername) !== 0)
         {
-            if(!is_array($reseller) || !isset($reseller['id']))
-            {
-                continue;
-            }
+            $this->verifiedReseller = [];
 
-            $rUsername = (string) ($reseller['username'] ?? '');
-            $rEmail = (string) ($reseller['email'] ?? '');
-
-            $usernameMatch = $username !== '' && strcasecmp($rUsername, $username) === 0;
-            $emailMatch = $email !== '' && strcasecmp($rEmail, $email) === 0;
-
-            if($usernameMatch || $emailMatch)
-            {
-                $id = (int) $reseller['id'];
-                $this->saveCustomFieldValue('resellerId', $id);
-                return $id;
-            }
+            throw new Exception(sprintf(
+                'Reseller ID %d belongs to the panel reseller "%s", but this service\'s username is "%s". Nothing was changed in the panel; check the Reseller ID field and the username of this service.',
+                $resellerId,
+                $panelUsername,
+                $serviceUsername
+            ));
         }
 
-        throw new Exception(sprintf(
-            "Reseller ID is not set on this service and no AdminBolt reseller was found (username='%s', email='%s').",
-            $username,
-            $email
-        ));
+        $this->verifiedReseller = isset($reseller['username']) ? $reseller : (array) ($reseller['reseller'] ?? $reseller['data'] ?? []);
+
+        return $resellerId;
     }
 
     protected function extractList(mixed $response): array

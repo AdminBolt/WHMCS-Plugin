@@ -19,7 +19,6 @@ add_hook('ClientAreaPrimarySidebar', 1, function (Item $primarySidebar): void {
         $service = Capsule::table('tblhosting')
             ->join('tblproducts', 'tblhosting.packageid', '=', 'tblproducts.id')
             ->where('tblhosting.id', '=', $_GET['id'])
-            ->where('tblproducts.type', '!=', 'reselleraccount')
             ->where('tblproducts.servertype', '=', 'AdminBolt')
             ->first(['tblhosting.id']);
 
@@ -41,7 +40,7 @@ add_hook('ClientAreaPrimarySidebar', 1, function (Item $primarySidebar): void {
     }
     catch (Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ClientAreaPrimarySidebar', "", $e->getMessage(), $e->getMessage());
+        \ModulesGarden\AdminBolt\Helpers\ModuleLog::call('ClientAreaPrimarySidebar', '', $e->getMessage());
     }
 });
 
