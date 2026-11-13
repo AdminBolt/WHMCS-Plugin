@@ -4,8 +4,8 @@
  * Shared hosting: an empty Hosting Account ID is recovered only from the one
  * panel account with the service's domain and username. Scenario: Create for "shopb"
  * failed (username taken by another customer's "shopb"), so the service has
- * no ID; no command may touch the other customer's account. Commands that act
- * on the account (all but Change Package) also check the account's username.
+ * no ID; no command may touch the other customer's account. Every command that
+ * acts on the account also checks the account's username.
  * Run: php tests/SharedAccountLookupTest.php
  */
 
@@ -105,7 +105,7 @@ check(str_contains($error, 'no domain and username') && $api->calls === [], 'no 
 
 // 6. Stored ID of another customer's account (33 typed instead of 23): every command that acts on the
 //    account refuses after reading it, so nothing is sent (no login link, no password change).
-foreach(array_diff_key($commands, ['ChangePackage' => true]) as $name => $class)
+foreach($commands as $name => $class)
 {
     $api = $panel([$otherCustomer]);
     $error = (string) error_of(fn() => with_api(new $class(array_replace($service, ['username' => 'shopc', 'customfields' => ['hostingAccountId' => '33']])), $api)->execute());
@@ -119,7 +119,7 @@ $expected = [
     'Terminate' => ['GET /api/hosting-accounts/33', 'DELETE /api/hosting-accounts/33'],
     'Suspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/suspend'],
     'Unsuspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/unsuspend'],
-    'ChangePackage' => ['PUT /api/hosting-accounts/33'],
+    'ChangePackage' => ['GET /api/hosting-accounts/33', 'PUT /api/hosting-accounts/33'],
     'ChangePassword' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/change-password'],
     'SSO' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/generate-sso-token'],
 ];

@@ -15,7 +15,7 @@ class ChangePackage extends AbstractAction
             return 'success';
         }
 
-        $resellerId = $this->getResellerId();
+        $resellerId = $this->getVerifiedResellerId();
 
         $api = $this->getApiInstance();
         $this->withPanelReason(fn() => $api->put('/api/resellers/' . $resellerId, $limits));
@@ -25,7 +25,7 @@ class ChangePackage extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->put('/api/hosting-accounts/' . $hostingAccountId, [

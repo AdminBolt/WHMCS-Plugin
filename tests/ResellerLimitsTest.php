@@ -16,7 +16,12 @@ use ModulesGarden\AdminBolt\Api\ApiException;
 
 tests_reset();
 
-$answer = fn(?array $response = null, ?Throwable $throw = null) => new TestApi(function() use ($response, $throw) {
+// GET of a single account or reseller answers with the service's username (the check before a change).
+$answer = fn(?array $response = null, ?Throwable $throw = null) => new TestApi(function(string $method, string $endpoint) use ($response, $throw) {
+    if($method === 'GET' && preg_match('#^/api/(resellers|hosting-accounts)/\d+$#', $endpoint, $m))
+    {
+        return ['username' => $m[1] === 'resellers' ? 'resel1' : 'shop5'];
+    }
     if($throw)
     {
         throw $throw;
@@ -60,7 +65,7 @@ check(($api->calls[0][1]['resource_cpu_speed'] ?? null) === 100 && ($api->calls[
 // 5. Package change sends only the filled limits.
 $api = $answer(['id' => 7, 'max_accounts' => 30]);
 $result = with_api(new ChangePackage(array_replace($base, $empty, ['configoption1' => '30'])), $api)->execute();
-check($result === 'success' && $api->calls === [['PUT /api/resellers/7', ['max_accounts' => 30]]], 'package change: PUT with max_accounts only');
+check($result === 'success' && $api->calls === [['GET /api/resellers/7', null], ['PUT /api/resellers/7', ['max_accounts' => 30]]], 'package change: username checked, PUT with max_accounts only');
 
 // 6. Package change with every setting empty: no panel call.
 $api = $answer();
@@ -71,7 +76,7 @@ $refusal = new ApiException('API error: The given data was invalid.', 422, ['mes
 $api = $answer(null, $refusal);
 $error = error_of(fn() => with_api(new ChangePackage(array_replace($base, $empty, ['configoption1' => '10', 'configoption2' => '512'])), $api)->execute());
 check(str_contains((string) $error, 'HTTP 422') && str_contains((string) $error, 'max_accounts: The reseller already has 20 accounts.') && str_contains((string) $error, 'The given data was invalid.'), '422 reason in the error: ' . $error);
-check($api->endpoints() === ['PUT /api/resellers/7'], 'one PUT, no further change after the refusal');
+check($api->endpoints() === ['GET /api/resellers/7', 'PUT /api/resellers/7'], 'one PUT, no further change after the refusal');
 
 // 8. A refusal with only a message (LVE limits on a server without CloudLinux).
 $api = $answer(null, new ApiException('API error: CloudLinux is not installed on this server, so the reseller LVE limits cannot be set: resource_cpu_speed.', 422, ['message' => 'CloudLinux is not installed on this server, so the reseller LVE limits cannot be set: resource_cpu_speed.']));
@@ -109,7 +114,7 @@ check(str_contains($options['Maximum Accounts']['Description'], 'save the produc
 $shared = ['producttype' => 'hostingaccount', 'username' => 'shop5', 'configoption1' => '3', 'configoption2' => 'on', 'customfields' => ['hostingAccountId' => '5'], 'serviceid' => 0, 'packageid' => 0];
 $api = $answer();
 with_api(new ChangePackage($shared), $api)->execute();
-check($api->calls === [['PUT /api/hosting-accounts/5', ['hosting_plan_id' => '3', 'ssh_access' => true]]], 'shared package change unchanged');
+check($api->calls === [['GET /api/hosting-accounts/5', null], ['PUT /api/hosting-accounts/5', ['hosting_plan_id' => '3', 'ssh_access' => true]]], 'shared package change unchanged');
 $api = $answer(['username' => 'shop5', 'sso_url' => 'u']);
 check(with_api(new ServiceSingleSignOn($shared), $api)->execute() === ['success' => true, 'redirectTo' => 'u'] && $api->endpoints() === ['GET /api/hosting-accounts/5', 'POST /api/hosting-accounts/5/generate-sso-token'], 'shared login: username checked, then link');
 

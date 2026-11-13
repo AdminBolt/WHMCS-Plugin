@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Terminate, Suspend, Unsuspend, login and Change Password of a reseller
+ * Change Package, Terminate, Suspend, Unsuspend, login and Change Password of a reseller
  * check that the panel reseller with the stored ID has this service's
  * username, so a mistyped Reseller ID (17 instead of 71) cannot act on
  * another reseller.
@@ -10,6 +10,7 @@
 
 require_once __DIR__ . '/bootstrap.php';
 
+use ModulesGarden\AdminBolt\Actions\ChangePackage;
 use ModulesGarden\AdminBolt\Actions\ChangePassword;
 use ModulesGarden\AdminBolt\Actions\ServiceSingleSignOn;
 use ModulesGarden\AdminBolt\Actions\SuspendAccount;
@@ -26,9 +27,9 @@ $panel = fn() => new TestApi(fn(string $method, string $endpoint) => match($meth
     default => ['sso_url' => 'https://panel.example.test/reseller/sso/x'],
 });
 
-$service = ['producttype' => 'reselleraccount', 'username' => 'resellerb', 'suspendreason' => '', 'password' => 'N3w-Pass', 'customfields' => ['resellerId' => '17']];
+$service = ['producttype' => 'reselleraccount', 'username' => 'resellerb', 'suspendreason' => '', 'password' => 'N3w-Pass', 'configoption1' => '30', 'customfields' => ['resellerId' => '17']];
 
-foreach(['Terminate' => TerminateAccount::class, 'Suspend' => SuspendAccount::class, 'Unsuspend' => UnsuspendAccount::class, 'SSO' => ServiceSingleSignOn::class, 'ChangePassword' => ChangePassword::class] as $name => $class)
+foreach(['Terminate' => TerminateAccount::class, 'Suspend' => SuspendAccount::class, 'Unsuspend' => UnsuspendAccount::class, 'SSO' => ServiceSingleSignOn::class, 'ChangePassword' => ChangePassword::class, 'ChangePackage' => ChangePackage::class] as $name => $class)
 {
     // 1. Mistyped ID: refused after the read, nothing changed.
     $api = $panel();

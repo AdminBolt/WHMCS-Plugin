@@ -129,8 +129,8 @@ abstract class AbstractAction
 
     /**
      * The hosting account ID, checked against the panel before any command
-     * that acts on the account (suspend, unsuspend, terminate, login,
-     * password change): the panel account must have this service's
+     * that acts on the account (package change, suspend, unsuspend,
+     * terminate, login, password change): the panel account must have this service's
      * username, so a mistyped ID cannot reach another customer's account.
      */
     protected function getVerifiedHostingAccountId(): int
@@ -178,8 +178,8 @@ abstract class AbstractAction
 
     /**
      * The stored reseller ID, checked against the panel before any command
-     * that acts on the reseller (suspend, unsuspend, terminate, login,
-     * password change): the panel reseller with that ID must have this
+     * that acts on the reseller (package change, suspend, unsuspend,
+     * terminate, login, password change): the panel reseller with that ID must have this
      * service's username, so a mistyped Reseller ID cannot reach another
      * reseller.
      */
