@@ -193,7 +193,7 @@ function AdminBolt_UsageUpdate(array $params): void
         $action = new UsageUpdate($params);
         $action->execute();
     }
-    catch(Exception $e)
+    catch(\Throwable $e)
     {
         \logModuleCall('AdminBolt', 'UsageUpdate', print_r($params, true), $e->getMessage(), $e->getMessage());
     }

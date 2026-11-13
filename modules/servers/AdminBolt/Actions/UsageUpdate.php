@@ -25,7 +25,7 @@ class UsageUpdate extends AbstractAction
             {
                 $this->updateService($service->id);
             }
-            catch(Exception $e)
+            catch(\Throwable $e)
             {
                 \logModuleCall('AdminBolt', 'UsageUpdate', 'Service ID: ' . $service->id, $e->getMessage(), $e->getMessage());
             }
@@ -36,7 +36,7 @@ class UsageUpdate extends AbstractAction
 
     protected function updateService(int $serviceId): void
     {
-        $hostingAccountId = $this->getHostingAccountId($serviceId);
+        $hostingAccountId = $this->getStoredHostingAccountId($serviceId);
 
         if(!$hostingAccountId)
         {
@@ -57,7 +57,7 @@ class UsageUpdate extends AbstractAction
             ]);
     }
 
-    protected function getHostingAccountId(int $serviceId): ?int
+    protected function getStoredHostingAccountId(int $serviceId): ?int
     {
         $customField = Capsule::table('tblcustomfieldsvalues')
             ->join('tblcustomfields', 'tblcustomfieldsvalues.fieldid', '=', 'tblcustomfields.id')
