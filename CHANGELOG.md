@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Reseller limit settings take whole numbers only; any other value (for example "on" kept from a shared product's settings) is ignored and not sent to the panel. After switching a product's type to reseller, save the product and check the settings, because values from the previous type are reused by position.
+- Shared hosting commands also show the panel's reason on failure: the error now reads "API error: <panel message>", or "API error (HTTP <code>)" when the panel gives no reason, instead of a bare "API error".
 
 ### Fixed
 

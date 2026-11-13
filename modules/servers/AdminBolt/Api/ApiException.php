@@ -5,9 +5,10 @@ namespace ModulesGarden\AdminBolt\Api;
 use Exception;
 
 /**
- * An error answer of the panel API. The message is the same as before this
- * class existed; the decoded response body is kept so a caller can show the
- * panel's own reason (for example the 422 validation errors).
+ * An error answer of the panel API. The message is the short text shown to
+ * WHMCS ("API error: <panel message>"); the decoded response body is kept so
+ * a caller can show the panel's full reason (for example the 422 validation
+ * errors).
  */
 class ApiException extends Exception
 {
