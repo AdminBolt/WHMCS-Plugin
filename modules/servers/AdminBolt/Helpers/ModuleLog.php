@@ -4,7 +4,8 @@ namespace ModulesGarden\AdminBolt\Helpers;
 
 /**
  * Writes to the WHMCS Module Log without secrets: the server API key and
- * secret, the access hash and account passwords are replaced by asterisks
+ * secret, the access hash, account passwords and single-use panel login
+ * links are replaced by asterisks
  * before logging, and their values are also passed to WHMCS to be masked.
  */
 class ModuleLog
@@ -15,6 +16,11 @@ class ModuleLog
      * Keys whose values are secrets, in module parameters and API bodies.
      */
     public const SECRET_KEYS = ['serverpassword', 'serveraccesshash', 'serverusername', 'password', 'password2', 'api_key', 'api_secret'];
+
+    /**
+     * Response fields that hold the single-use panel login link or its token.
+     */
+    public const LOGIN_LINK_KEYS = ['sso_url', 'token', 'sso_token', 'access_token', 'login_url'];
 
     public static function call(string $action, mixed $request, mixed $response, mixed $processed = null, array $secrets = []): void
     {
@@ -90,8 +96,11 @@ class ModuleLog
 
         $text = preg_replace('/^([ \t]*X-API-(?:Key|Secret)[ \t]*:)[^\r\n]*/mi', '$1 ' . self::MASK, $text);
 
-        $keys = implode('|', array_map('preg_quote', self::SECRET_KEYS));
+        $keys = implode('|', array_map('preg_quote', array_merge(self::SECRET_KEYS, self::LOGIN_LINK_KEYS)));
         $text = preg_replace('/("(?:' . $keys . ')"\s*:\s*)"(?:[^"\\\\]|\\\\.)*"/i', '$1"' . self::MASK . '"', $text);
+
+        // A plain "url" field is masked when it is a login link (contains "sso" or "token").
+        $text = preg_replace('/("url"\s*:\s*)"(?:[^"\\\\]|\\\\.)*(?:sso|token)(?:[^"\\\\]|\\\\.)*"/i', '$1"' . self::MASK . '"', $text);
 
         foreach(self::cleanSecrets($secrets) as $secret)
         {

@@ -76,6 +76,18 @@ check(str_contains($entry[1] ?? '', '"password": "' . ModuleLog::MASK . '"') && 
 check(str_contains($entry[2] ?? '', 'already been taken'), 'panel response kept');
 check(array_diff([$apiKey, $apiSecret, $clientPassword], $entry[4] ?? []) === [], 'API key, secret and password passed to WHMCS for masking');
 
+// 3b. The single-use panel login link in an SSO response is masked (shared and reseller).
+foreach(['/api/hosting-accounts/21/generate-sso-token', '/api/resellers/7/generate-sso-token'] as $endpoint)
+{
+    tests_reset();
+    $body = json_encode(['message' => 'SSO token generated', 'sso_url' => 'https://panel.example.test/sso/login?token=OneTimeTok3n', 'url' => 'https://panel.example.test/sso/OneTimeTok3n', 'token' => 'OneTimeTok3n', 'sso_token' => 'OneTimeTok3n', 'expires_at' => '2026-11-13T10:00:00Z']);
+    (function() use ($endpoint, $body) { $this->logCall($endpoint, "POST $endpoint HTTP/1.1\r\n\r\n", "HTTP/1.1 200 OK\r\n\r\n" . $body, null); })->call($client);
+    $entry = $GLOBALS['moduleLog'][0] ?? [];
+    check(!str_contains(json_encode(array_slice($entry, 1, 3)), 'OneTimeTok3n'), "login link and token masked for $endpoint: " . ($entry[2] ?? ''));
+    check(substr_count($entry[2] ?? '', ModuleLog::MASK) === 4 && str_contains($entry[2] ?? '', 'expires_at') && str_contains($entry[2] ?? '', 'SSO token generated'), "other response fields kept for $endpoint");
+}
+check(ModuleLog::text('{"url":"https://panel.example.test/docs"}') === '{"url":"https://panel.example.test/docs"}', 'a plain url without a token is kept');
+
 // 4. Short values are masked by key but not replaced in free text.
 check(ModuleLog::params(['password' => 'abc', 'domain' => 'abc.example.test'])['password'] === ModuleLog::MASK, 'short password masked by key');
 check(ModuleLog::text('abc.example.test', ['abc']) === 'abc.example.test', 'short value does not garble text');
