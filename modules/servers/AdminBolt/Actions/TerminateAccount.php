@@ -80,7 +80,7 @@ class TerminateAccount extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->delete('/api/hosting-accounts/' . $hostingAccountId);

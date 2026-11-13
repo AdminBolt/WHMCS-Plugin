@@ -97,11 +97,15 @@ $error = error_of(fn() => with_api(new CreateAccount($serviceB), $api)->execute(
 check(is_string($error) && str_contains($error, 'Reseller ID'), 'create without an ID in the response fails clearly: ' . var_export($error, true));
 check($api->endpoints() === ['POST /api/resellers'] && Capsule::$writes === [], 'no lookup and nothing stored after such a create');
 
-// 5. Shared products keep the hosting account recovery by domain or username.
+// 5. Shared products keep the hosting account recovery when domain and username both match.
 Capsule::reset();
-$api = new TestApi(fn(string $method, string $endpoint) => $endpoint === '/api/hosting-accounts' ? [['id' => 21, 'username' => 'shopb', 'domain' => 'shop-b.example.test']] : []);
+$api = new TestApi(fn(string $method, string $endpoint) => match($endpoint) {
+    '/api/hosting-accounts' => [['id' => 21, 'username' => 'shopb', 'domain' => 'shop-b.example.test']],
+    '/api/hosting-accounts/21' => ['id' => 21, 'username' => 'shopb', 'domain' => 'shop-b.example.test'],
+    default => [],
+});
 $shared = ['producttype' => 'hostingaccount', 'serviceid' => 0, 'packageid' => 0, 'domain' => 'shop-b.example.test', 'username' => 'shopb', 'customfields' => ['hostingAccountId' => '']];
 with_api(new SuspendAccount($shared), $api)->execute();
-check($api->endpoints() === ['GET /api/hosting-accounts', 'POST /api/hosting-accounts/21/suspend'], 'shared recovery unchanged: ' . json_encode($api->endpoints()));
+check($api->endpoints() === ['GET /api/hosting-accounts', 'GET /api/hosting-accounts/21', 'POST /api/hosting-accounts/21/suspend'], 'shared recovery unchanged: ' . json_encode($api->endpoints()));
 
 tests_done();

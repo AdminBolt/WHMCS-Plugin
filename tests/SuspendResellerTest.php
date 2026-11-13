@@ -12,7 +12,7 @@ use ModulesGarden\AdminBolt\Actions\UnsuspendAccount;
 
 tests_reset();
 
-$suspendApi = fn(?string $failWith = null) => new TestApi(function(string $method) use ($failWith) {
+$suspendApi = fn(?string $failWith = null) => new TestApi(function(string $method, string $endpoint) use ($failWith) {
     if($failWith !== null)
     {
         throw new Exception($failWith);
@@ -20,7 +20,7 @@ $suspendApi = fn(?string $failWith = null) => new TestApi(function(string $metho
 
     if($method === 'GET')
     {
-        return ['id' => 7, 'username' => 'resellera'];
+        return $endpoint === '/api/hosting-accounts/21' ? ['id' => 21, 'username' => 'shop21'] : ['id' => 7, 'username' => 'resellera'];
     }
 
     return ['id' => 7, 'suspended' => true];
@@ -53,10 +53,10 @@ foreach([SuspendAccount::class, UnsuspendAccount::class] as $class)
 }
 
 // 5. Shared products unchanged.
-$shared = ['producttype' => 'hostingaccount', 'customfields' => ['hostingAccountId' => '21'], 'suspendreason' => 'Abuse'];
+$shared = ['producttype' => 'hostingaccount', 'username' => 'shop21', 'customfields' => ['hostingAccountId' => '21'], 'suspendreason' => 'Abuse'];
 $api = $suspendApi();
 with_api(new SuspendAccount($shared), $api)->execute();
 with_api(new UnsuspendAccount($shared), $api)->execute();
-check($api->calls === [['POST /api/hosting-accounts/21/suspend', null], ['POST /api/hosting-accounts/21/unsuspend', null]], 'shared products unchanged: ' . json_encode($api->calls));
+check($api->calls === [['GET /api/hosting-accounts/21', null], ['POST /api/hosting-accounts/21/suspend', null], ['POST /api/hosting-accounts/21/unsuspend', null]], 'shared products unchanged: ' . json_encode($api->calls));
 
 tests_done();

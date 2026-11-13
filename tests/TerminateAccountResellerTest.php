@@ -22,6 +22,7 @@ $terminateApi = fn(array $accounts, array $failingIds = [], array $warningIds = 
             return match($endpoint) {
                 '/api/hosting-accounts' => $accounts,
                 '/api/resellers/7' => ['id' => 7, 'username' => 'resellera'],
+                '/api/hosting-accounts/21' => $accounts[3],
                 default => null,
             };
         }
@@ -117,7 +118,7 @@ check($error === 'API error: This reseller has active hosting accounts.', 'resel
 
 // 7. Shared product: unchanged single account deletion.
 $api = $terminateApi($accounts);
-$result = with_api(new TerminateAccount(['producttype' => 'hostingaccount', 'customfields' => ['hostingAccountId' => '21']]), $api)->execute();
-check($result === 'success' && $api->endpoints() === ['DELETE /api/hosting-accounts/21'], 'shared product unchanged');
+$result = with_api(new TerminateAccount(['producttype' => 'hostingaccount', 'username' => 'other', 'customfields' => ['hostingAccountId' => '21']]), $api)->execute();
+check($result === 'success' && $api->endpoints() === ['GET /api/hosting-accounts/21', 'DELETE /api/hosting-accounts/21'], 'shared product: username checked, then deleted');
 
 tests_done();

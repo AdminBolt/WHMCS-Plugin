@@ -22,7 +22,7 @@ class SuspendAccount extends AbstractAction
 
     public function sharedExecute(): string
     {
-        $hostingAccountId = $this->getHostingAccountId();
+        $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
         $api->post('/api/hosting-accounts/' . $hostingAccountId . '/suspend');

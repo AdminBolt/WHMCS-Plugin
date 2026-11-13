@@ -66,6 +66,13 @@ abstract class AbstractAction
         }
     }
 
+    /**
+     * The hosting account ID stored on the service. When it is empty, it is
+     * recovered only from a panel account whose domain and username both
+     * equal the service's (case-insensitive), and only when exactly one
+     * account matches; otherwise the command fails before any change, so it
+     * cannot reach another customer's account with the same username.
+     */
     protected function getHostingAccountId(): int
     {
         $id = (int) ($this->params['customfields']['hostingAccountId'] ?? 0);
@@ -78,40 +85,71 @@ abstract class AbstractAction
         $domain = trim((string) ($this->params['domain'] ?? ''));
         $username = trim((string) ($this->params['username'] ?? ''));
 
-        if($domain === '' && $username === '')
+        if($domain === '' || $username === '')
         {
-            throw new Exception('Hosting Account ID is not set on this service and there is no domain or username to recover it.');
+            throw new Exception("This service has no AdminBolt hosting account ID and no domain and username to find it; set the Hosting Account ID field to the panel's hosting account ID.");
         }
 
         $api = $this->getApiInstance();
-        $accounts = $this->extractList($api->get('/api/hosting-accounts'));
+        $matches = [];
 
-        foreach($accounts as $account)
+        foreach($this->extractList($api->get('/api/hosting-accounts')) as $account)
         {
             if(!is_array($account) || !isset($account['id']))
             {
                 continue;
             }
 
-            $accountDomain = (string) ($account['domain'] ?? '');
-            $accountUsername = (string) ($account['username'] ?? '');
-
-            $domainMatch = $domain !== '' && strcasecmp($accountDomain, $domain) === 0;
-            $usernameMatch = $username !== '' && strcasecmp($accountUsername, $username) === 0;
-
-            if($domainMatch || $usernameMatch)
+            if(strcasecmp((string) ($account['domain'] ?? ''), $domain) === 0
+                && strcasecmp((string) ($account['username'] ?? ''), $username) === 0)
             {
-                $id = (int) $account['id'];
-                $this->saveCustomFieldValue('hostingAccountId', $id);
-                return $id;
+                $matches[] = (int) $account['id'];
             }
         }
 
-        throw new Exception(sprintf(
-            "Hosting Account ID is not set on this service and no AdminBolt account was found (domain='%s', username='%s').",
-            $domain,
-            $username
-        ));
+        if(count($matches) !== 1)
+        {
+            throw new Exception(sprintf(
+                "This service has no AdminBolt hosting account ID and %s panel account has the domain '%s' and the username '%s'; nothing was changed. Set the Hosting Account ID field to the panel's hosting account ID.",
+                $matches ? 'more than one' : 'no',
+                $domain,
+                $username
+            ));
+        }
+
+        $this->saveCustomFieldValue('hostingAccountId', $matches[0]);
+
+        return $matches[0];
+    }
+
+    /**
+     * The hosting account ID, checked against the panel before a destructive
+     * command: the panel account must have this service's username.
+     */
+    protected function getVerifiedHostingAccountId(): int
+    {
+        $hostingAccountId = $this->getHostingAccountId();
+        $serviceUsername = trim((string) ($this->params['username'] ?? ''));
+
+        $account = $this->getApiInstance()->get('/api/hosting-accounts/' . $hostingAccountId);
+        $panelUsername = '';
+
+        if(is_array($account))
+        {
+            $panelUsername = (string) ($account['username'] ?? $account['hostingAccount']['username'] ?? $account['data']['username'] ?? '');
+        }
+
+        if($serviceUsername === '' || strcasecmp($panelUsername, $serviceUsername) !== 0)
+        {
+            throw new Exception(sprintf(
+                'Hosting account ID %d belongs to the panel account "%s", but this service\'s username is "%s". Nothing was changed in the panel; check the Hosting Account ID field and the username of this service.',
+                $hostingAccountId,
+                $panelUsername,
+                $serviceUsername
+            ));
+        }
+
+        return $hostingAccountId;
     }
 
     /**
