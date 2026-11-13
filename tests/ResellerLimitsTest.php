@@ -86,12 +86,23 @@ check($api->endpoints() === ['POST /api/resellers/7/generate-sso-token'], 'resel
 $api = $answer(['message' => 'x']);
 check(str_contains((string) error_of(fn() => with_api(new ServiceSingleSignOn($base), $api)->execute()), 'sign-in link'), 'missing link is an error');
 
-// 9b. Non-numeric values (left over from a shared product's settings, or mistyped) are not limits.
-$api = $answer(['id' => 7]);
-with_api(new CreateAccount(array_replace($base, $empty, ['configoption1' => '12', 'configoption2' => 'on', 'configoption3' => 'abc', 'configoption4' => '-5', 'configoption5' => '1.5'])), $api)->execute();
-check(array_diff_key($api->calls[0][1], array_flip($contactKeys)) === ['max_accounts' => 12], 'only whole numbers sent: ' . json_encode(array_diff_key($api->calls[0][1], array_flip($contactKeys))));
-$api = $answer();
-check(with_api(new ChangePackage(array_replace($base, $empty, ['configoption2' => 'on'])), $api)->execute() === 'success' && $api->calls === [], 'only non-numeric values: no panel call');
+// 9b. A filled value that is not a whole number stops Create and Change Package before any panel call, naming the setting.
+foreach([
+    ['configoption2', 'on', 'Disk Limit'],
+    ['configoption2', '10240MB', 'Disk Limit'],
+    ['configoption3', '10 240', 'Bandwidth Limit'],
+    ['configoption4', '-5', 'CPU Speed'],
+    ['configoption5', '1.5', 'Physical Memory'],
+] as [$option, $value, $label])
+{
+    foreach([CreateAccount::class, ChangePackage::class] as $class)
+    {
+        $api = $answer(['id' => 7]);
+        $error = error_of(fn() => with_api(new $class(array_replace($base, $empty, ['configoption1' => '12', $option => $value])), $api)->execute());
+        check(is_string($error) && str_contains($error, '"' . $label . '"') && str_contains($error, '"' . $value . '"') && str_contains($error, 'whole number'), "$class with $label \"$value\" fails naming the setting: " . var_export($error, true));
+        check($api->calls === [], "$class with $label \"$value\" makes no panel call");
+    }
+}
 check(str_contains($options['Maximum Accounts']['Description'], 'save the product'), 'settings tell to save the product after switching type');
 
 // 10. Shared products unchanged.

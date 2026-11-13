@@ -2,6 +2,8 @@
 
 namespace ModulesGarden\AdminBolt\Helpers;
 
+use Exception;
+
 /**
  * Resource limits of a reseller product, kept as the product's module
  * settings. The order of LIMITS is the order of the settings, so the n-th
@@ -45,23 +47,33 @@ class ResellerLimits
     /**
      * The limits set on the product, keyed by the panel API field. Empty
      * settings are left out, so the panel default applies on create and the
-     * current value stays on a package change. Only whole numbers are sent,
-     * as integers; any other value (for example "on" left over from a shared
-     * product's settings) is ignored.
+     * current value stays on a package change. Whole numbers are sent as
+     * integers. Any other value (for example "10240MB", or "on" left over
+     * from a shared product's settings) stops the command before any panel
+     * call, with a message naming the setting.
      */
     public static function fromParams(array $params): array
     {
         $limits = [];
         $index = 1;
 
-        foreach(array_keys(self::LIMITS) as $field)
+        foreach(self::LIMITS as $field => $limit)
         {
             $value = trim((string) ($params['configoption' . $index] ?? ''));
             $index++;
 
-            if(!ctype_digit($value))
+            if($value === '')
             {
                 continue;
+            }
+
+            if(!ctype_digit($value))
+            {
+                throw new Exception(sprintf(
+                    'The module setting "%s" of this product is "%s"; it must be a whole number or empty. Correct it in the product\'s Module Settings and run the command again.',
+                    $limit['label'],
+                    $value
+                ));
             }
 
             $limits[$field] = (int) $value;
