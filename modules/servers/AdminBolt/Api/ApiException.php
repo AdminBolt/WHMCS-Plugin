@@ -31,21 +31,15 @@ class ApiException extends Exception
 
     /**
      * The panel's reason: the "message" field followed by every validation
-     * error, or the plain message when the body carries neither.
+     * error once, or the plain message when the body carries neither. The
+     * message is left out when it only repeats a field error, including the
+     * Laravel summary "<first error> (and N more errors)".
      */
     public function getPanelReason(): string
     {
         $body = $this->responseBody ?? [];
-        $parts = [];
-
-        foreach(['message', 'error'] as $key)
-        {
-            if(!empty($body[$key]) && is_string($body[$key]))
-            {
-                $parts[] = $body[$key];
-                break;
-            }
-        }
+        $fieldErrors = [];
+        $errorTexts = [];
 
         if(!empty($body['errors']) && is_array($body['errors']))
         {
@@ -53,13 +47,39 @@ class ApiException extends Exception
             {
                 foreach((array) $messages as $message)
                 {
-                    if(is_string($message) && !in_array($message, $parts, true))
+                    if(!is_string($message) || $message === '')
                     {
-                        $parts[] = $field . ': ' . $message;
+                        continue;
+                    }
+
+                    $errorTexts[] = $message;
+                    $line = $field . ': ' . $message;
+
+                    if(!in_array($line, $fieldErrors, true))
+                    {
+                        $fieldErrors[] = $line;
                     }
                 }
             }
         }
+
+        $parts = [];
+
+        foreach(['message', 'error'] as $key)
+        {
+            if(!empty($body[$key]) && is_string($body[$key]))
+            {
+                $summary = preg_replace('/\s*\(and \d+ more errors?\)$/', '', $body[$key]);
+
+                if(!in_array($summary, $errorTexts, true))
+                {
+                    $parts[] = $body[$key];
+                }
+                break;
+            }
+        }
+
+        $parts = array_merge($parts, $fieldErrors);
 
         if(empty($parts))
         {
