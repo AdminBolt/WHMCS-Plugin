@@ -2,10 +2,24 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
+
 class ChangePackage extends AbstractAction
 {
     public function resellerExecute(): string
     {
+        $limits = ResellerLimits::fromParams($this->params);
+
+        if(empty($limits))
+        {
+            return 'success';
+        }
+
+        $resellerId = $this->getResellerId();
+
+        $api = $this->getApiInstance();
+        $this->withPanelReason(fn() => $api->put('/api/resellers/' . $resellerId, $limits));
+
         return 'success';
     }
 

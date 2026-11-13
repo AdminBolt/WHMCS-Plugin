@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\AdminBolt;
+use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
 use Exception;
 use stdClass;
@@ -13,7 +14,7 @@ class ConfigOptions extends AbstractAction
     {
         $this->createCustomField('resellerId', 'Reseller ID', true);
 
-        return [];
+        return ResellerLimits::configOptions();
     }
 
     public function sharedExecute(): array

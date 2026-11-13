@@ -60,7 +60,11 @@ class AdminBolt
 
         if($httpCode != 200 && $httpCode != 201 && $httpCode != 204)
         {
-            throw new Exception(!empty($responseBodyDecoded['error']) ? ('API error: ' . $responseBodyDecoded['error']) : 'API error');
+            throw new ApiException(
+                !empty($responseBodyDecoded['error']) ? ('API error: ' . $responseBodyDecoded['error']) : 'API error',
+                (int) $httpCode,
+                is_array($responseBodyDecoded) ? $responseBodyDecoded : null
+            );
         }
 
         return $responseBodyDecoded;

@@ -10,7 +10,10 @@ class ClientArea extends AbstractAction
     {
         return [
             'templatefile' => 'templates/reseller/index.tpl',
-            'vars' => []
+            'vars' => [
+                'serviceId' => $this->params['serviceid'],
+                'abLang' => new Lang()
+            ]
         ];
     }
 

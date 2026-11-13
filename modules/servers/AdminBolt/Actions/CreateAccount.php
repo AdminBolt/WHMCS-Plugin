@@ -2,6 +2,7 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
 
 class CreateAccount extends AbstractAction
@@ -9,7 +10,7 @@ class CreateAccount extends AbstractAction
     public function resellerExecute(): string
     {
         $api = $this->getApiInstance();
-        $result = $api->post('/api/resellers', [
+        $result = $this->withPanelReason(fn() => $api->post('/api/resellers', [
             'name' => $this->params['clientsdetails']['fullname'],
             'username' => $this->getUsername(),
             'password' => $this->params['password'],
@@ -21,7 +22,7 @@ class CreateAccount extends AbstractAction
             'zip' => $this->params['clientsdetails']['postcode'],
             'country' => $this->params['clientsdetails']['countrycode'],
             'company' => $this->params['clientsdetails']['company'],
-        ]);
+        ] + ResellerLimits::fromParams($this->params)));
 
         $resellerId = $this->extractId($result);
 

@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\AdminBolt;
+use ModulesGarden\AdminBolt\Api\ApiException;
 use WHMCS\Database\Capsule;
 use Exception;
 
@@ -46,6 +47,23 @@ abstract class AbstractAction
         }
 
         return $this->api;
+    }
+
+    /**
+     * Runs a panel API call and, when the panel refuses it, fails with the
+     * panel's own reason (for example a 422 limit below the reseller's
+     * current allocation) instead of a bare "API error".
+     */
+    protected function withPanelReason(callable $call): mixed
+    {
+        try
+        {
+            return $call();
+        }
+        catch(ApiException $e)
+        {
+            throw new Exception($e->getPanelReason(), 0, $e);
+        }
     }
 
     protected function getHostingAccountId(): int
