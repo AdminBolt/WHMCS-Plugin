@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reseller products have module settings for maximum accounts, disk and bandwidth limits and the CloudLinux LVE limits, applied when the reseller is created and on upgrade or downgrade (a limit the panel refuses fails the command with the panel's reason); the client area and the admin area have a login button that opens the reseller panel (AB-2540).
 
+### Changed
+
+- Reseller limit settings take whole numbers only; any other value (for example "on" kept from a shared product's settings) is ignored and not sent to the panel. After switching a product's type to reseller, save the product and check the settings, because values from the previous type are reused by position.
+
 ### Fixed
 
 - The daily usage update no longer stops with a PHP fatal error (`UsageUpdate` method signature conflict with `AbstractAction`); an error on one service is logged in the Module Log and the remaining services are still updated (AB-2537).

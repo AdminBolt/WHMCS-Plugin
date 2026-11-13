@@ -11,7 +11,7 @@ namespace ModulesGarden\AdminBolt\Helpers;
 class ResellerLimits
 {
     public const LIMITS = [
-        'max_accounts' => ['label' => 'Maximum Accounts', 'description' => 'Number of hosting accounts'],
+        'max_accounts' => ['label' => 'Maximum Accounts', 'description' => 'Number of hosting accounts. After switching the product type to reseller, save the product, then check these settings: values kept from the previous type are reused'],
         'disk_limit_mb' => ['label' => 'Disk Limit', 'description' => 'MB'],
         'bandwidth_limit_mb' => ['label' => 'Bandwidth Limit', 'description' => 'MB'],
         'resource_cpu_speed' => ['label' => 'CPU Speed', 'description' => '% (CloudLinux only)'],
@@ -45,9 +45,9 @@ class ResellerLimits
     /**
      * The limits set on the product, keyed by the panel API field. Empty
      * settings are left out, so the panel default applies on create and the
-     * current value stays on a package change. A whole number is sent as an
-     * integer; anything else is sent as typed so the panel refuses it with
-     * its reason.
+     * current value stays on a package change. Only whole numbers are sent,
+     * as integers; any other value (for example "on" left over from a shared
+     * product's settings) is ignored.
      */
     public static function fromParams(array $params): array
     {
@@ -59,12 +59,12 @@ class ResellerLimits
             $value = trim((string) ($params['configoption' . $index] ?? ''));
             $index++;
 
-            if($value === '')
+            if(!ctype_digit($value))
             {
                 continue;
             }
 
-            $limits[$field] = ctype_digit($value) ? (int) $value : $value;
+            $limits[$field] = (int) $value;
         }
 
         return $limits;
