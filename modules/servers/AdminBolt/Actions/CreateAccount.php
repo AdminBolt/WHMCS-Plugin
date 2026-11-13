@@ -4,6 +4,7 @@ namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
+use Exception;
 
 class CreateAccount extends AbstractAction
 {
@@ -24,12 +25,15 @@ class CreateAccount extends AbstractAction
             'company' => $this->params['clientsdetails']['company'],
         ] + ResellerLimits::fromParams($this->params)));
 
+        // Later commands act only on this stored ID (no lookup by username or e-mail).
         $resellerId = $this->extractId($result);
 
-        if($resellerId > 0)
+        if($resellerId <= 0)
         {
-            $this->saveCustomFieldValue('resellerId', $resellerId);
+            throw new Exception("The reseller was created in the panel, but the panel response has no reseller ID; set the resellerId field to the panel's reseller ID.");
         }
+
+        $this->saveCustomFieldValue('resellerId', $resellerId);
 
         return 'success';
     }

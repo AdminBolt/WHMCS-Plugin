@@ -114,52 +114,21 @@ abstract class AbstractAction
         ));
     }
 
+    /**
+     * The reseller ID stored on the service. It is never looked up by
+     * username or e-mail: a client can have several resellers with the same
+     * e-mail, and a match would act on another reseller of the client.
+     */
     protected function getResellerId(): int
     {
-        $id = (int) ($this->params['customfields']['resellerId'] ?? 0);
+        $id = trim((string) ($this->params['customfields']['resellerId'] ?? ''));
 
-        if($id > 0)
+        if(!ctype_digit($id) || (int) $id <= 0)
         {
-            return $id;
+            throw new Exception("This service has no AdminBolt reseller ID; set the resellerId field to the panel's reseller ID.");
         }
 
-        $username = trim((string) ($this->params['username'] ?? ''));
-        $email = trim((string) ($this->params['clientsdetails']['email'] ?? ''));
-
-        if($username === '' && $email === '')
-        {
-            throw new Exception('Reseller ID is not set on this service and there is no username or email to recover it.');
-        }
-
-        $api = $this->getApiInstance();
-        $resellers = $this->extractList($api->get('/api/resellers'));
-
-        foreach($resellers as $reseller)
-        {
-            if(!is_array($reseller) || !isset($reseller['id']))
-            {
-                continue;
-            }
-
-            $rUsername = (string) ($reseller['username'] ?? '');
-            $rEmail = (string) ($reseller['email'] ?? '');
-
-            $usernameMatch = $username !== '' && strcasecmp($rUsername, $username) === 0;
-            $emailMatch = $email !== '' && strcasecmp($rEmail, $email) === 0;
-
-            if($usernameMatch || $emailMatch)
-            {
-                $id = (int) $reseller['id'];
-                $this->saveCustomFieldValue('resellerId', $id);
-                return $id;
-            }
-        }
-
-        throw new Exception(sprintf(
-            "Reseller ID is not set on this service and no AdminBolt reseller was found (username='%s', email='%s').",
-            $username,
-            $email
-        ));
+        return (int) $id;
     }
 
     protected function extractList(mixed $response): array

@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Terminate on a reseller product now deletes every hosting account of the reseller through the regular account deletion before deleting the reseller. It stops at the first account that cannot be deleted, keeps the reseller and names that account in the error and the Module Log, so Terminate can be run again. Panel errors returned under `message` are now shown instead of a bare "API error" (AB-2539).
 - Suspend and Unsuspend on a reseller product now call the panel (`POST /api/resellers/{id}/suspend` with the WHMCS suspend reason, `POST /api/resellers/{id}/unsuspend`) and report the panel error in WHMCS and the Module Log instead of always returning success. Requires AdminBolt panel 1.9.6 or newer; older panels have no reseller suspension and the command fails with the panel's error (AB-2538).
 
+### Security
+
+- Reseller commands (Change Package, login, Suspend, Unsuspend, Terminate, Change Password) act only on the reseller ID stored in the service's Reseller ID field. The fallback lookup by username or e-mail added in 0.0.2 is removed for resellers: a client with several resellers sharing one e-mail could have a command run on another of their resellers. A service without a stored reseller ID now fails with a clear message and the panel is not called; set the Reseller ID field to the panel's reseller ID. Create stores the ID from the panel's create response and fails clearly when the response has none. Shared hosting services keep the recovery by domain or username.
+
 ## [0.0.3] - 2026-09-14
 
 ### Fixed
