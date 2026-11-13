@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The daily usage update no longer stops with a PHP fatal error (`UsageUpdate` method signature conflict with `AbstractAction`); an error on one service is logged in the Module Log and the remaining services are still updated (AB-2537).
 - Terminate on a reseller product now deletes every hosting account of the reseller through the regular account deletion before deleting the reseller. It stops at the first account that cannot be deleted, keeps the reseller and names that account in the error and the Module Log, so Terminate can be run again. Panel errors returned under `message` are now shown instead of a bare "API error" (AB-2539).
+- Suspend and Unsuspend on a reseller product now call the panel (`POST /api/resellers/{id}/suspend` with the WHMCS suspend reason, `POST /api/resellers/{id}/unsuspend`) and report the panel error in WHMCS and the Module Log instead of always returning success. Requires AdminBolt panel 1.9.6 or newer; older panels have no reseller suspension and the command fails with the panel's error (AB-2538).
 
 ## [0.0.3] - 2026-09-14
 
