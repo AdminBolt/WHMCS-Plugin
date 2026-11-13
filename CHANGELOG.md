@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-**Upgrade note:** before upgrading, list the reseller services whose Reseller ID field is empty (Clients > Products/Services, reseller products, custom field Reseller ID) and enter the panel's reseller ID in each. From this version reseller commands no longer look the reseller up, so on such a service every command fails, including the automatic suspension of overdue services.
+**Upgrade note:** before upgrading, list the reseller services whose Reseller ID field is empty (Clients > Products/Services, reseller products, custom field Reseller ID) and enter the panel's reseller ID in each. From this version reseller commands no longer look the reseller up, so on such a service every command fails, including the automatic suspension of overdue services. Shared hosting services with an empty Hosting Account ID are found only by an exact domain and username match; fill the field for any service whose panel account has a different domain or username.
 
 ### Added
 
@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - Reseller commands (Change Package, login, Suspend, Unsuspend, Terminate, Change Password) act only on the reseller ID stored in the service's Reseller ID field. Versions 0.0.2 and 0.0.3 filled an empty Reseller ID by searching all resellers in the panel for the service's username or the client's e-mail address, so a service whose reseller was never created (for example because the username was taken) could act on another customer's reseller: open its panel, change its limits, suspend it or terminate it with all its accounts. If you ran reseller commands on services with an empty Reseller ID, check the Module Log for calls to `/api/resellers/{id}` with an unexpected ID. A service without a stored reseller ID now fails with a clear message and the panel is not called. Create stores the ID from the panel's create response; when it cannot, the message says the reseller exists and must not be created again. Terminate and Suspend also refuse when the panel reseller's username does not match the service username, so a mistyped Reseller ID cannot hit another reseller. Shared hosting services keep the recovery by domain or username.
+- Shared hosting services with an empty Hosting Account ID no longer take the first panel account whose domain or username matches, which could be another customer's account (for example after Create failed because the username was taken). The ID is recovered only when exactly one panel account has both the service's domain and username; otherwise the command fails and nothing is changed or saved. Terminate and Suspend of a shared account also refuse when the panel account's username differs from the service username.
+- The Module Log no longer contains secrets. Earlier versions logged the server's API key and API secret (in the module parameters of a failed command and in the request headers of every API call), the access hash and account passwords. These values are now masked. If your Module Log was ever shared, exported or kept by a third party, create a new API key in the panel, update the server in WHMCS and delete the old key.
 
 ## [0.0.3] - 2026-09-14
 
