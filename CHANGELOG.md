@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-11-16
+
 **Upgrade note:** before upgrading, list the reseller services whose Reseller ID field is empty (Clients > Products/Services, reseller products, custom field Reseller ID) and enter the panel's reseller ID in each. From this version reseller commands no longer look the reseller up, so on such a service every command fails, including the automatic suspension of overdue services. Shared hosting services with an empty Hosting Account ID are found only by an exact domain and username match; fill the field for any service whose panel account has a different domain or username. The username of every shared and reseller service in WHMCS must also equal the username of its account or reseller in the panel: otherwise Change Package, Suspend, Unsuspend, Terminate, the login button and Change Password refuse and change nothing, which also stops the automatic suspension of overdue services. Such services are easy to spot: the refusal in WHMCS and in the Module Log names both usernames, for example: Hosting account ID 40 belongs to the panel account "u1234abcd", but this service's username is "oldshop"); correct the username in WHMCS or the ID field, then run the command again.
 
 ### Added
