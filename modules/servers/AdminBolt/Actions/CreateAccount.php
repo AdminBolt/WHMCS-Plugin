@@ -2,14 +2,16 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
+use Exception;
 
 class CreateAccount extends AbstractAction
 {
     public function resellerExecute(): string
     {
         $api = $this->getApiInstance();
-        $result = $api->post('/api/resellers', [
+        $result = $this->withPanelReason(fn() => $api->post('/api/resellers', [
             'name' => $this->params['clientsdetails']['fullname'],
             'username' => $this->getUsername(),
             'password' => $this->params['password'],
@@ -21,13 +23,28 @@ class CreateAccount extends AbstractAction
             'zip' => $this->params['clientsdetails']['postcode'],
             'country' => $this->params['clientsdetails']['countrycode'],
             'company' => $this->params['clientsdetails']['company'],
-        ]);
+        ] + ResellerLimits::fromParams($this->params)));
 
+        // Later commands act only on this stored ID (no lookup by username or e-mail).
         $resellerId = $this->extractId($result);
 
-        if($resellerId > 0)
+        if($resellerId <= 0)
+        {
+            throw new Exception("The reseller was created in the panel, but the panel did not return its ID. Do not run Create again: find the reseller in the panel, enter its ID in this service's Reseller ID field and activate the service by hand.");
+        }
+
+        try
         {
             $this->saveCustomFieldValue('resellerId', $resellerId);
+        }
+        catch(Exception $e)
+        {
+            throw new Exception(sprintf(
+                "The reseller was created in the panel with ID %d, but the ID could not be saved on this service: %s. Do not run Create again: open the product's Module Settings and save them (this adds the Reseller ID field), enter %d in this service's Reseller ID field and activate the service by hand.",
+                $resellerId,
+                rtrim($e->getMessage(), '.'),
+                $resellerId
+            ), 0, $e);
         }
 
         return 'success';

@@ -20,6 +20,7 @@ use ModulesGarden\AdminBolt\Actions\UsageUpdate;
 use ModulesGarden\AdminBolt\Actions\ServiceSingleSignOn;
 use ModulesGarden\AdminBolt\Actions\AdminSingleSignOn;
 use ModulesGarden\AdminBolt\Actions\ClientArea;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 function AdminBolt_MetaData(): array
 {
@@ -36,7 +37,7 @@ function AdminBolt_ConfigOptions(array $params): array
     }
     catch (Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ConfigOptions', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('ConfigOptions', $params, $e->getMessage());
 
         return [];
     }
@@ -51,7 +52,7 @@ function AdminBolt_CreateAccount(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'CreateAccount', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('CreateAccount', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -66,7 +67,7 @@ function AdminBolt_SuspendAccount(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'SuspendAccount', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('SuspendAccount', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -81,7 +82,7 @@ function AdminBolt_UnsuspendAccount(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'UnsuspendAccount', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('UnsuspendAccount', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -96,7 +97,7 @@ function AdminBolt_TerminateAccount(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'TerminateAccount', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('TerminateAccount', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -111,7 +112,7 @@ function AdminBolt_ChangePassword(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ChangePassword', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('ChangePassword', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -126,7 +127,7 @@ function AdminBolt_ChangePackage(array $params): string
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ChangePackage', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('ChangePackage', $params, $e->getMessage());
 
         return $e->getMessage();
     }
@@ -141,7 +142,7 @@ function AdminBolt_TestConnection(array $params): array
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'TestConnection', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('TestConnection', $params, $e->getMessage());
 
         return [
             'success' => false,
@@ -159,7 +160,7 @@ function AdminBolt_AdminSingleSignOn(array $params): array
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'AdminSingleSignOn', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('AdminSingleSignOn', $params, $e->getMessage());
 
         return [
             'success' => false,
@@ -177,7 +178,7 @@ function AdminBolt_ServiceSingleSignOn(array $params): array
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ServiceSingleSignOn', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('ServiceSingleSignOn', $params, $e->getMessage());
 
         return [
             'success' => false,
@@ -193,9 +194,9 @@ function AdminBolt_UsageUpdate(array $params): void
         $action = new UsageUpdate($params);
         $action->execute();
     }
-    catch(Exception $e)
+    catch(\Throwable $e)
     {
-        \logModuleCall('AdminBolt', 'UsageUpdate', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('UsageUpdate', $params, $e->getMessage());
     }
 }
 
@@ -208,7 +209,7 @@ function AdminBolt_ClientArea(array $params): array
     }
     catch(Exception $e)
     {
-        \logModuleCall('AdminBolt', 'ClientArea', print_r($params, true), $e->getMessage(), $e->getMessage());
+        ModuleLog::error('ClientArea', $params, $e->getMessage());
 
         return [];
     }
