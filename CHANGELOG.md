@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-11-16
+
+### Release Overview
+
+* **New Features**
+  * **Reseller products (AB-2540)** - Reseller products have module settings for the maximum number of accounts, disk and bandwidth limits and the CloudLinux LVE limits, applied when the reseller is created and on upgrade or downgrade. Each setting is a whole number or empty, and a limit the panel refuses stops the command with the panel's reason. After switching a product's type to reseller, save the product and check these settings. The client area and the admin area have a login button that opens the reseller panel. Reseller commands act on the reseller stored in the service's **Reseller ID** field, and a shared hosting service with an empty **Hosting Account ID** is matched to the one panel account that has both its domain and its username. **Change Package**, **Suspend**, **Unsuspend**, **Terminate**, the login button and **Change Password** go ahead when the panel username equals the service username, and otherwise stop with a message naming both. Before upgrading, enter the panel's reseller ID in every reseller service whose **Reseller ID** is empty, and make sure the username of every shared and reseller service equals its username in the panel, so these commands and the automatic suspension of overdue services keep working. The **Module Log** masks API keys and secrets, passwords and panel login links. After upgrading, create a new API key in the panel for each WHMCS server, update the server in WHMCS and delete the old key.
+  * **Reseller suspension (AB-2538)** - **Suspend** and **Unsuspend** on a reseller product suspend and unsuspend the reseller in the panel together with its hosting accounts, pass the WHMCS suspend reason and report the panel's answer in WHMCS and the **Module Log**. Requires AdminBolt 1.9.6 or newer.
+
+* **Bug Fixes**
+  * **Daily usage update (AB-2537)** - The daily usage update goes through every service, and an error on one service is written to the **Module Log** while the others are still updated. Every command that fails shows the panel's reason: `API error: <panel message>`, or `API error (HTTP <code>)` when the panel gives none.
+  * **Reseller termination (AB-2539)** - **Terminate** on a reseller product deletes every hosting account of the reseller, then the reseller. When an account cannot be deleted, the reseller stays and the error and the **Module Log** name that account, so **Terminate** can be run again.
+
 ## [0.0.3] - 2026-09-14
 
 ### Fixed
