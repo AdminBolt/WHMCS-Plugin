@@ -2,6 +2,7 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Api\ApiException;
 use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
 use Exception;
@@ -11,7 +12,7 @@ class CreateAccount extends AbstractAction
     public function resellerExecute(): string
     {
         $api = $this->getApiInstance();
-        $result = $this->withPanelReason(fn() => $api->post('/api/resellers', [
+        $result = $this->withResellerEmailReason(fn() => $api->post('/api/resellers', [
             'name' => $this->params['clientsdetails']['fullname'],
             'username' => $this->getUsername(),
             'password' => $this->params['password'],
@@ -78,6 +79,34 @@ class CreateAccount extends AbstractAction
         }
 
         return 'success';
+    }
+
+    /**
+     * The panel keeps one reseller per e-mail address, and Create sends the
+     * client's e-mail. A client who already has a reseller on this panel
+     * therefore cannot get a second one; say so instead of the bare 422.
+     */
+    protected function withResellerEmailReason(callable $call): mixed
+    {
+        try
+        {
+            return $call();
+        }
+        catch(ApiException $e)
+        {
+            $errors = $e->getResponseBody()['errors'] ?? null;
+
+            if($e->getHttpCode() === 422 && is_array($errors) && !empty($errors['email']))
+            {
+                throw new Exception(sprintf(
+                    "The panel already has a reseller with the e-mail %s, and every panel reseller needs its own e-mail. Nothing was created. A client can have one reseller per AdminBolt server: use the existing reseller service, place this one on another server, or change the client's e-mail before running Create. (%s)",
+                    (string) ($this->params['clientsdetails']['email'] ?? ''),
+                    $e->getPanelReason()
+                ), 0, $e);
+            }
+
+            throw new Exception($e->getPanelReason(), 0, $e);
+        }
     }
 
     protected function extractId(mixed $response): int
