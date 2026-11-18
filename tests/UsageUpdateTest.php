@@ -66,4 +66,38 @@ $error = error_of(fn() => AdminBolt_UsageUpdate(['serverid' => 1]));
 check($error === null, 'AdminBolt_UsageUpdate does not throw');
 check(($GLOBALS['moduleLog'][0][0] ?? '') === 'UsageUpdate' && ($GLOBALS['moduleLog'][0][2] ?? '') === 'database gone', 'entry point logs the error');
 
+// 3. Only Active and Suspended services are polled (AB-2585): Terminated, Cancelled,
+// Pending and Fraud services have no panel account and logged "Not found" every run.
+tests_reset();
+$statuses = [1 => 'Active', 2 => 'Suspended', 3 => 'Terminated', 4 => 'Cancelled', 5 => 'Pending', 6 => 'Fraud'];
+$filter = null;
+Capsule::$reader = function(string $table, array $wheres, string $operation) use ($statuses, &$filter) {
+    if($table === 'tblhosting' && $operation === 'get')
+    {
+        $filter = $wheres['tblhosting.domainstatus'] ?? null;
+        $rows = [];
+        foreach($statuses as $id => $status)
+        {
+            if($filter === null || ($filter[0] === 'in' && in_array($status, $filter[1], true)))
+            {
+                $rows[] = (object) ['id' => $id];
+            }
+        }
+        return $rows;
+    }
+    if($table === 'tblcustomfieldsvalues' && $operation === 'first')
+    {
+        return (object) ['value' => (string) (100 + $wheres['tblcustomfieldsvalues.relid'])];
+    }
+    return null;
+};
+$api = new TestApi(fn() => ['usageDetails' => ['diskUsage' => 1, 'totalDiskUsage' => 2, 'bandwidth' => 3, 'totalBandwidth' => 4]]);
+check(with_api(new UsageUpdate(['serverid' => 1]), $api)->execute() === 'success', 'execute returns success');
+check($filter === ['in', ['Active', 'Suspended']], 'services filtered to Active and Suspended: ' . json_encode($filter));
+check($api->endpoints() === [
+    'GET /api/hosting-accounts/101/usage-details',
+    'GET /api/hosting-accounts/102/usage-details',
+], 'only the Active and Suspended services asked: ' . json_encode($api->endpoints()));
+check($GLOBALS['moduleLog'] === [], 'nothing logged');
+
 tests_done();

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.0.4] - 2026-11-16
+## [0.0.4] - 2026-11-18
 
 ### Release Overview
 
@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Bug Fixes**
   * **Daily usage update (AB-2537)** - The daily usage update goes through every service, and an error on one service is written to the **Module Log** while the others are still updated. Every command that fails shows the panel's reason: `API error: <panel message>`, or `API error (HTTP <code>)` when the panel gives none.
   * **Reseller termination (AB-2539)** - **Terminate** on a reseller product deletes every hosting account of the reseller, then the reseller. When an account cannot be deleted, the reseller stays and the error and the **Module Log** name that account, so **Terminate** can be run again.
+  * **Usage update (AB-2585)** - The daily usage update asks the panel only about Active and Suspended services. Terminated, Cancelled, Pending and Fraud services have no panel account and no longer write `API error: Not found` to the **Module Log** on every run.
+  * **Second reseller for a client (AB-2585)** - The panel keeps one reseller per e-mail address and **Create** sends the client's e-mail, so a client can have one reseller per AdminBolt server. **Create** of a second one now says so, names the e-mail and that nothing was created, instead of only `API error (HTTP 422): email: The email has already been taken.`
 
 ## [0.0.3] - 2026-09-14
 
