@@ -94,12 +94,13 @@ class CreateAccount extends AbstractAction
         }
         catch(ApiException $e)
         {
-            $errors = $e->getResponseBody()['errors'] ?? null;
+            $emailErrors = (array) ($e->getResponseBody()['errors']['email'] ?? []);
+            $taken = (bool) array_filter($emailErrors, fn($m) => is_string($m) && str_contains($m, 'already been taken'));
 
-            if($e->getHttpCode() === 422 && is_array($errors) && !empty($errors['email']))
+            if($e->getHttpCode() === 422 && $taken)
             {
                 throw new Exception(sprintf(
-                    "The panel already has a reseller with the e-mail %s, and every panel reseller needs its own e-mail. Nothing was created. A client can have one reseller per AdminBolt server: use the existing reseller service, place this one on another server, or change the client's e-mail before running Create. (%s)",
+                    "The panel already has a reseller with the e-mail %s, and every panel reseller needs its own e-mail. Nothing was created. A client can have one reseller per AdminBolt server: use the existing reseller service or place this one on another server. (%s)",
                     (string) ($this->params['clientsdetails']['email'] ?? ''),
                     $e->getPanelReason()
                 ), 0, $e);
