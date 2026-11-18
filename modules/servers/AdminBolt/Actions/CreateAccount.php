@@ -2,14 +2,17 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Api\ApiException;
+use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
+use Exception;
 
 class CreateAccount extends AbstractAction
 {
     public function resellerExecute(): string
     {
         $api = $this->getApiInstance();
-        $result = $api->post('/api/resellers', [
+        $result = $this->withResellerEmailReason(fn() => $api->post('/api/resellers', [
             'name' => $this->params['clientsdetails']['fullname'],
             'username' => $this->getUsername(),
             'password' => $this->params['password'],
@@ -21,13 +24,28 @@ class CreateAccount extends AbstractAction
             'zip' => $this->params['clientsdetails']['postcode'],
             'country' => $this->params['clientsdetails']['countrycode'],
             'company' => $this->params['clientsdetails']['company'],
-        ]);
+        ] + ResellerLimits::fromParams($this->params)));
 
+        // Later commands act only on this stored ID (no lookup by username or e-mail).
         $resellerId = $this->extractId($result);
 
-        if($resellerId > 0)
+        if($resellerId <= 0)
+        {
+            throw new Exception("The reseller was created in the panel, but the panel did not return its ID. Do not run Create again: find the reseller in the panel, enter its ID in this service's Reseller ID field and activate the service by hand.");
+        }
+
+        try
         {
             $this->saveCustomFieldValue('resellerId', $resellerId);
+        }
+        catch(Exception $e)
+        {
+            throw new Exception(sprintf(
+                "The reseller was created in the panel with ID %d, but the ID could not be saved on this service: %s. Do not run Create again: open the product's Module Settings and save them (this adds the Reseller ID field), enter %d in this service's Reseller ID field and activate the service by hand.",
+                $resellerId,
+                rtrim($e->getMessage(), '.'),
+                $resellerId
+            ), 0, $e);
         }
 
         return 'success';
@@ -61,6 +79,35 @@ class CreateAccount extends AbstractAction
         }
 
         return 'success';
+    }
+
+    /**
+     * The panel keeps one reseller per e-mail address, and Create sends the
+     * client's e-mail. A client who already has a reseller on this panel
+     * therefore cannot get a second one; say so instead of the bare 422.
+     */
+    protected function withResellerEmailReason(callable $call): mixed
+    {
+        try
+        {
+            return $call();
+        }
+        catch(ApiException $e)
+        {
+            $emailErrors = (array) ($e->getResponseBody()['errors']['email'] ?? []);
+            $taken = (bool) array_filter($emailErrors, fn($m) => is_string($m) && str_contains($m, 'already been taken'));
+
+            if($e->getHttpCode() === 422 && $taken)
+            {
+                throw new Exception(sprintf(
+                    "The panel already has a reseller with the e-mail %s, and every panel reseller needs its own e-mail. Nothing was created. A client can have one reseller per AdminBolt server: use the existing reseller service or place this one on another server. (%s)",
+                    (string) ($this->params['clientsdetails']['email'] ?? ''),
+                    $e->getPanelReason()
+                ), 0, $e);
+            }
+
+            throw new Exception($e->getPanelReason(), 0, $e);
+        }
     }
 
     protected function extractId(mixed $response): int

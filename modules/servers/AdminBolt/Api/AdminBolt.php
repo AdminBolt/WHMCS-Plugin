@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Api;
 
 use Exception;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 class AdminBolt
 {
@@ -52,7 +53,7 @@ class AdminBolt
         $responseHeaderSize = curl_getinfo($curl, CURLINFO_HEADER_SIZE);
         $responseBody = substr($response, $responseHeaderSize);
 
-        \logModuleCall('AdminBolt', $endpoint, $request, $response, $response);
+        $this->logCall($endpoint, $request, (string) $response, $content);
 
         curl_close($curl);
 
@@ -60,10 +61,41 @@ class AdminBolt
 
         if($httpCode != 200 && $httpCode != 201 && $httpCode != 204)
         {
-            throw new Exception(!empty($responseBodyDecoded['error']) ? ('API error: ' . $responseBodyDecoded['error']) : 'API error');
+            // The panel reports errors under "message"; "error" is kept for older responses.
+            $errorMessage = 'API error (HTTP ' . $httpCode . ')';
+
+            foreach(['error', 'message'] as $key)
+            {
+                if(is_array($responseBodyDecoded) && isset($responseBodyDecoded[$key]) && is_string($responseBodyDecoded[$key]) && $responseBodyDecoded[$key] !== '')
+                {
+                    $errorMessage = 'API error: ' . $responseBodyDecoded[$key];
+                    break;
+                }
+            }
+
+            throw new ApiException(
+                $errorMessage,
+                (int) $httpCode,
+                is_array($responseBodyDecoded) ? $responseBodyDecoded : null
+            );
         }
 
         return $responseBodyDecoded;
+    }
+
+    /**
+     * Module Log entry of an API call, without the API key, the API secret
+     * and passwords sent in the body.
+     */
+    protected function logCall(string $endpoint, string $request, string $response, ?array $content): void
+    {
+        ModuleLog::call(
+            $endpoint,
+            $request,
+            $response,
+            $response,
+            array_merge([$this->apiKey, $this->apiSecret], ModuleLog::secretsOf($content ?? []))
+        );
     }
 
     public function get(string $endpoint): ?array

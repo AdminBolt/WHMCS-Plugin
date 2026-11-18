@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use Exception;
+use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 use WHMCS\Database\Capsule;
 use Carbon\Carbon;
 
@@ -15,6 +16,9 @@ class UsageUpdate extends AbstractAction
             ->where('tblproducts.type', '!=', 'reselleraccount')
             ->where('tblproducts.servertype', '=', 'AdminBolt')
             ->where('tblhosting.server', '=', $this->params['serverid'])
+            // Only services that have a panel account; Pending, Terminated,
+            // Cancelled and Fraud services have none to ask about.
+            ->whereIn('tblhosting.domainstatus', ['Active', 'Suspended'])
             ->get([
                 'tblhosting.id'
             ]);
@@ -25,9 +29,9 @@ class UsageUpdate extends AbstractAction
             {
                 $this->updateService($service->id);
             }
-            catch(Exception $e)
+            catch(\Throwable $e)
             {
-                \logModuleCall('AdminBolt', 'UsageUpdate', 'Service ID: ' . $service->id, $e->getMessage(), $e->getMessage());
+                ModuleLog::call('UsageUpdate', 'Service ID: ' . $service->id, $e->getMessage());
             }
         }
 
@@ -36,7 +40,7 @@ class UsageUpdate extends AbstractAction
 
     protected function updateService(int $serviceId): void
     {
-        $hostingAccountId = $this->getHostingAccountId($serviceId);
+        $hostingAccountId = $this->getStoredHostingAccountId($serviceId);
 
         if(!$hostingAccountId)
         {
@@ -57,7 +61,7 @@ class UsageUpdate extends AbstractAction
             ]);
     }
 
-    protected function getHostingAccountId(int $serviceId): ?int
+    protected function getStoredHostingAccountId(int $serviceId): ?int
     {
         $customField = Capsule::table('tblcustomfieldsvalues')
             ->join('tblcustomfields', 'tblcustomfieldsvalues.fieldid', '=', 'tblcustomfields.id')
