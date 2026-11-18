@@ -16,6 +16,9 @@ class UsageUpdate extends AbstractAction
             ->where('tblproducts.type', '!=', 'reselleraccount')
             ->where('tblproducts.servertype', '=', 'AdminBolt')
             ->where('tblhosting.server', '=', $this->params['serverid'])
+            // Only services that have a panel account; Pending, Terminated,
+            // Cancelled and Fraud services have none to ask about.
+            ->whereIn('tblhosting.domainstatus', ['Active', 'Suspended'])
             ->get([
                 'tblhosting.id'
             ]);

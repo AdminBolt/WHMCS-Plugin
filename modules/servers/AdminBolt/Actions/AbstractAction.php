@@ -161,8 +161,9 @@ abstract class AbstractAction
 
     /**
      * The reseller ID stored on the service. It is never looked up by
-     * username or e-mail: a client can have several resellers with the same
-     * e-mail, and a match would act on another reseller of the client.
+     * username or e-mail: the panel reseller with the client's e-mail can be
+     * one made outside WHMCS or one of another client after an e-mail change,
+     * and a match would act on that reseller.
      */
     protected function getResellerId(): int
     {

@@ -9,6 +9,7 @@
 require_once __DIR__ . '/bootstrap.php';
 
 use ModulesGarden\AdminBolt\Actions\CreateAccount;
+use ModulesGarden\AdminBolt\Api\ApiException;
 use WHMCS\Database\Capsule;
 
 tests_reset();
@@ -47,5 +48,33 @@ Capsule::$reader = fn(string $table, array $wheres, string $operation) => $table
 $api = new TestApi(fn() => ['id' => 42]);
 check(with_api(new CreateAccount($params), $api)->execute() === 'success', 'create succeeds');
 check(Capsule::$writes === [['insert', 'tblcustomfieldsvalues', [], ['fieldid' => 77, 'relid' => 52, 'value' => '42']]], 'ID stored in a new field value: ' . json_encode(Capsule::$writes));
+
+// 4. Second reseller for a client who already has one on this panel (AB-2585):
+// the panel refuses the e-mail; the message says why and what to do.
+tests_reset();
+$api = new TestApi(function() {
+    throw new ApiException('API error (HTTP 422)', 422, ['message' => 'The email has already been taken.', 'errors' => ['email' => ['The email has already been taken.']]]);
+});
+$error = (string) error_of(fn() => with_api(new CreateAccount($params), $api)->execute());
+check(str_contains($error, 'already has a reseller with the e-mail client@example.test'), 'names the e-mail: ' . $error);
+check(str_contains($error, 'Nothing was created') && str_contains($error, 'one reseller per AdminBolt server'), 'says nothing was created and the rule');
+check(str_contains($error, 'API error (HTTP 422): email: The email has already been taken.'), 'keeps the panel reason');
+check($api->endpoints() === ['POST /api/resellers'] && Capsule::$writes === [], 'one create call, nothing stored');
+
+// 5. Another e-mail refusal (invalid address) keeps the plain panel reason.
+tests_reset();
+$api = new TestApi(function() {
+    throw new ApiException('API error (HTTP 422)', 422, ['message' => 'The email field must be a valid email address.', 'errors' => ['email' => ['The email field must be a valid email address.']]]);
+});
+$error = (string) error_of(fn() => with_api(new CreateAccount($params), $api)->execute());
+check($error === 'API error (HTTP 422): email: The email field must be a valid email address.', 'invalid e-mail refusal unchanged: ' . $error);
+
+// 6. Other refusals keep the plain panel reason.
+tests_reset();
+$api = new TestApi(function() {
+    throw new ApiException('API error (HTTP 422)', 422, ['message' => 'The username has already been taken.', 'errors' => ['username' => ['The username has already been taken.']]]);
+});
+$error = (string) error_of(fn() => with_api(new CreateAccount($params), $api)->execute());
+check($error === 'API error (HTTP 422): username: The username has already been taken.', 'username refusal unchanged: ' . $error);
 
 tests_done();

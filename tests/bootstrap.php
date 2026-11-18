@@ -78,6 +78,12 @@ namespace {
             return $this;
         }
 
+        public function whereIn(string $column, array $values): static
+        {
+            $this->wheres[$column] = ['in', $values];
+            return $this;
+        }
+
         public function get(array $columns = []): array
         {
             return $this->read('get') ?? [];
