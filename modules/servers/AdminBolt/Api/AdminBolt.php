@@ -126,4 +126,4 @@ class AdminBolt
     {
         return $this->request('DELETE', $endpoint);
     }
-}
+}
