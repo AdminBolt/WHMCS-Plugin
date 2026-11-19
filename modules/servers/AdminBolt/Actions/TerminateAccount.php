@@ -9,6 +9,13 @@ use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 class TerminateAccount extends AbstractAction
 {
     /**
+     * The panel answers the terminate call at once, unless another
+     * operation holds the reseller: it then waits up to two minutes before
+     * it answers 409. A little more than that, well below the WHMCS limit.
+     */
+    public const QUEUE_TIMEOUT_SECONDS = 150;
+
+    /**
      * Asks the panel to terminate the reseller: the panel blocks it at once
      * and deletes its hosting accounts, its plans and the reseller in a
      * background job, so the command returns in a moment however many
@@ -16,13 +23,6 @@ class TerminateAccount extends AbstractAction
      * that job. A panel without the terminate endpoint (before AdminBolt
      * 1.9.7) gets the accounts deleted one by one from here, as before.
      */
-    /**
-     * The panel answers the terminate call at once, unless another
-     * operation holds the reseller: it then waits up to two minutes before
-     * it answers 409. A little more than that, well below the WHMCS limit.
-     */
-    public const QUEUE_TIMEOUT_SECONDS = 150;
-
     public function resellerExecute(): string
     {
         $resellerId = $this->getVerifiedResellerId();
