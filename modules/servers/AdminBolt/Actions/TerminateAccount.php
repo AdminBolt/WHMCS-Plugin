@@ -16,6 +16,9 @@ class TerminateAccount extends AbstractAction
      * that job. A panel without the terminate endpoint (before AdminBolt
      * 1.9.7) gets the accounts deleted one by one from here, as before.
      */
+    /** The panel answers the terminate call at once; a minute is far more than it needs. */
+    public const QUEUE_TIMEOUT_SECONDS = 60;
+
     public function resellerExecute(): string
     {
         $resellerId = $this->getVerifiedResellerId();
@@ -24,7 +27,7 @@ class TerminateAccount extends AbstractAction
 
         try
         {
-            $response = $api->post('/api/resellers/' . $resellerId . '/terminate');
+            $response = $api->withTimeout(self::QUEUE_TIMEOUT_SECONDS)->post('/api/resellers/' . $resellerId . '/terminate');
         }
         catch(ApiException $e)
         {

@@ -190,6 +190,37 @@ check(\ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(202), '202 is a succ
 check(\ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(200) && \ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(201) && \ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(204), '200, 201 and 204 stay successes');
 check(!\ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(409) && !\ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(404) && !\ModulesGarden\AdminBolt\Api\AdminBolt::isSuccessCode(302), 'errors and redirects stay errors');
 
+// 14. A panel that answers 405 for the terminate route (older routing) gets the old account-by-account deletion.
+$api = new TestApi(function(string $method, string $endpoint) {
+    if($method === 'GET')
+    {
+        return $endpoint === '/api/resellers/7' ? ['id' => 7, 'username' => 'resellera'] : [];
+    }
+    if($method === 'POST')
+    {
+        throw new ApiException('API error (HTTP 405)', 405, ['message' => 'The POST method is not supported for route api/resellers/7/terminate.']);
+    }
+    return [];
+});
+check(with_api(new TerminateAccount($resellerParams), $api)->execute() === 'success', '405 falls back and succeeds');
+check($api->endpoints() === ['GET /api/resellers/7', 'POST /api/resellers/7/terminate', 'GET /api/hosting-accounts', 'DELETE /api/resellers/7'], '405 fallback calls: ' . implode(' | ', $api->endpoints()));
+
+// 15. Accounts deleted with leftovers are named in the Module Log.
+$GLOBALS['moduleLog'] = [];
+$api = $queuedApi(['id' => 7, 'termination_state' => 'queued', 'accounts_deleted' => ['alpha'], 'accounts_deleted_with_leftovers' => [['username' => 'alpha', 'reason' => 'The hosting account was deleted. Failed cleanup steps: delete_linux_user.']], 'accounts_failed' => [], 'accounts_pending' => []]);
+with_api(new TerminateAccount($resellerParams), $api)->execute();
+$logged = $GLOBALS['moduleLog'][0][2] ?? '';
+check(str_contains($logged, 'Accounts deleted with unfinished cleanup steps: alpha: The hosting account was deleted. Failed cleanup steps: delete_linux_user.'), 'Module Log names the leftovers: ' . $logged);
+
+// 16. The terminate call has a short time limit of its own; other calls the client's default; and a
+// client copy with another limit leaves the original as it was.
+$api = $queuedApi(['id' => 7, 'termination_state' => 'queued']);
+with_api(new TerminateAccount($resellerParams), $api)->execute();
+check($api->timeouts === [\ModulesGarden\AdminBolt\Api\AdminBolt::TIMEOUT_SECONDS, TerminateAccount::QUEUE_TIMEOUT_SECONDS], 'time limits per call: ' . json_encode($api->timeouts));
+$client = new \ModulesGarden\AdminBolt\Api\AdminBolt('https://panel.example.test', 'k', 's');
+check($client->withTimeout(5)->timeoutSeconds() === 5 && $client->timeoutSeconds() === \ModulesGarden\AdminBolt\Api\AdminBolt::TIMEOUT_SECONDS, 'withTimeout() returns a copy');
+check(\ModulesGarden\AdminBolt\Api\AdminBolt::TIMEOUT_SECONDS < 300 && \ModulesGarden\AdminBolt\Api\AdminBolt::CONNECT_TIMEOUT_SECONDS <= 30, 'limits stay below the usual WHMCS time limit');
+
 // 7. Shared product: unchanged single account deletion.
 $api = $terminateApi($accounts);
 $result = with_api(new TerminateAccount(['producttype' => 'hostingaccount', 'username' => 'other', 'customfields' => ['hostingAccountId' => '21']]), $api)->execute();

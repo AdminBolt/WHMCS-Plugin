@@ -133,9 +133,23 @@ namespace {
             $this->handler = $handler;
         }
 
+        /** @var list<int> the time limit of every call, in call order */
+        public array $timeouts = [];
+
+        /** One recorder for every call: the copy shares the call lists. */
+        public function withTimeout(int $seconds): static
+        {
+            $client = parent::withTimeout($seconds);
+            $client->calls = &$this->calls;
+            $client->timeouts = &$this->timeouts;
+
+            return $client;
+        }
+
         protected function request(string $method, string $endpoint, ?array $content = null): ?array
         {
             $this->calls[] = [$method . ' ' . $endpoint, $content];
+            $this->timeouts[] = $this->timeoutSeconds();
 
             return $this->handler ? ($this->handler)($method, $endpoint, $content) : null;
         }

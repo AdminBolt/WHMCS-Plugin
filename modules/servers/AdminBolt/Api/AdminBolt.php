@@ -7,6 +7,18 @@ use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 class AdminBolt
 {
+    /** Seconds to wait for the panel to accept the connection. */
+    public const CONNECT_TIMEOUT_SECONDS = 15;
+
+    /**
+     * Seconds a call may take in all, below the usual WHMCS PHP time limit,
+     * so a panel that hangs fails the command with a clear error instead of
+     * holding it until WHMCS kills it. withTimeout() changes it for one call.
+     */
+    public const TIMEOUT_SECONDS = 240;
+
+    protected int $timeoutSeconds = self::TIMEOUT_SECONDS;
+
     public function __construct(
         protected string $url,
         protected string $apiKey,
@@ -21,6 +33,8 @@ class AdminBolt
         curl_setopt($curl, CURLOPT_HEADER, true);
         curl_setopt($curl, CURLINFO_HEADER_OUT, true);
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
+        curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, self::CONNECT_TIMEOUT_SECONDS);
+        curl_setopt($curl, CURLOPT_TIMEOUT, $this->timeoutSeconds);
         curl_setopt($curl, CURLOPT_HTTPHEADER, [
             'Content-Type: application/json',
             'Accept: application/json',
@@ -105,6 +119,20 @@ class AdminBolt
             $response,
             array_merge([$this->apiKey, $this->apiSecret], ModuleLog::secretsOf($content ?? []))
         );
+    }
+
+    /** A copy of this client whose calls time out after $seconds in all. */
+    public function withTimeout(int $seconds): static
+    {
+        $client = clone $this;
+        $client->timeoutSeconds = $seconds;
+
+        return $client;
+    }
+
+    public function timeoutSeconds(): int
+    {
+        return $this->timeoutSeconds;
     }
 
     public function get(string $endpoint): ?array
