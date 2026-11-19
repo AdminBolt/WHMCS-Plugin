@@ -16,8 +16,12 @@ class TerminateAccount extends AbstractAction
      * that job. A panel without the terminate endpoint (before AdminBolt
      * 1.9.7) gets the accounts deleted one by one from here, as before.
      */
-    /** The panel answers the terminate call at once; a minute is far more than it needs. */
-    public const QUEUE_TIMEOUT_SECONDS = 60;
+    /**
+     * The panel answers the terminate call at once, unless another
+     * operation holds the reseller: it then waits up to two minutes before
+     * it answers 409. A little more than that, well below the WHMCS limit.
+     */
+    public const QUEUE_TIMEOUT_SECONDS = 150;
 
     public function resellerExecute(): string
     {
@@ -70,7 +74,11 @@ class TerminateAccount extends AbstractAction
         $summary = sprintf(
             'Termination of reseller #%d %s; the panel deletes its hosting accounts, its plans and the reseller in the background (Background Jobs page).',
             $resellerId,
-            $state === 'running' ? 'already in progress' : 'queued'
+            match($state) {
+                'running' => 'already in progress',
+                'delayed' => 'recorded, its background job is queued by the panel within a few minutes',
+                default => 'queued',
+            }
         );
 
         $deleted = array_filter((array) ($response['accounts_deleted'] ?? []), 'is_string');

@@ -221,6 +221,11 @@ $client = new \ModulesGarden\AdminBolt\Api\AdminBolt('https://panel.example.test
 check($client->withTimeout(5)->timeoutSeconds() === 5 && $client->timeoutSeconds() === \ModulesGarden\AdminBolt\Api\AdminBolt::TIMEOUT_SECONDS, 'withTimeout() returns a copy');
 check(\ModulesGarden\AdminBolt\Api\AdminBolt::TIMEOUT_SECONDS < 300 && \ModulesGarden\AdminBolt\Api\AdminBolt::CONNECT_TIMEOUT_SECONDS <= 30, 'limits stay below the usual WHMCS time limit');
 
+// 17. Recorded, but the panel queues the job later: the Module Log says so.
+$GLOBALS['moduleLog'] = [];
+with_api(new TerminateAccount($resellerParams), $queuedApi(['id' => 7, 'termination_state' => 'delayed']))->execute();
+check(str_starts_with($GLOBALS['moduleLog'][0][2] ?? '', 'Termination of reseller #7 recorded, its background job is queued by the panel within a few minutes'), 'delayed wording: ' . ($GLOBALS['moduleLog'][0][2] ?? ''));
+
 // 7. Shared product: unchanged single account deletion.
 $api = $terminateApi($accounts);
 $result = with_api(new TerminateAccount(['producttype' => 'hostingaccount', 'username' => 'other', 'customfields' => ['hostingAccountId' => '21']]), $api)->execute();
