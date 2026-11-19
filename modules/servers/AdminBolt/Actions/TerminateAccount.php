@@ -3,20 +3,116 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use Exception;
+use ModulesGarden\AdminBolt\Api\ApiException;
 use ModulesGarden\AdminBolt\Helpers\ModuleLog;
 
 class TerminateAccount extends AbstractAction
 {
     /**
-     * Deletes every hosting account of the reseller through the regular
-     * account deletion endpoint, then the reseller itself. Stops at the first
-     * account that cannot be deleted and keeps the reseller, so the command
-     * can be run again once the cause is fixed.
+     * Asks the panel to terminate the reseller: the panel blocks it at once
+     * and deletes its hosting accounts, its plans and the reseller in a
+     * background job, so the command returns in a moment however many
+     * accounts the reseller has. A call while the panel is still at it joins
+     * that job. A panel without the terminate endpoint (before AdminBolt
+     * 1.9.7) gets the accounts deleted one by one from here, as before.
      */
     public function resellerExecute(): string
     {
         $resellerId = $this->getVerifiedResellerId();
 
+        $api = $this->getApiInstance();
+
+        try
+        {
+            $response = $api->post('/api/resellers/' . $resellerId . '/terminate');
+        }
+        catch(ApiException $e)
+        {
+            if(!$this->isMissingEndpoint($e))
+            {
+                throw new Exception($e->getPanelReason(), 0, $e);
+            }
+
+            return $this->terminateAccountByAccount($resellerId);
+        }
+
+        ModuleLog::call('TerminateAccount', 'reseller #' . $resellerId, $this->describeQueuedTermination($resellerId, is_array($response) ? $response : []));
+
+        return 'success';
+    }
+
+    /**
+     * The panel answered 404 for the terminate endpoint itself, not for the
+     * reseller (checked just before): an older panel without it.
+     */
+    private function isMissingEndpoint(ApiException $e): bool
+    {
+        if($e->getHttpCode() === 405)
+        {
+            return true;
+        }
+
+        $message = (string) (($e->getResponseBody() ?? [])['message'] ?? '');
+
+        return $e->getHttpCode() === 404 && stripos($message, 'Reseller not found') === false;
+    }
+
+    /**
+     * The Module Log line of a queued termination: what the panel has done so
+     * far and what failed in an earlier run, with the reasons.
+     */
+    private function describeQueuedTermination(int $resellerId, array $response): string
+    {
+        $state = (string) ($response['termination_state'] ?? '');
+        $summary = sprintf(
+            'Termination of reseller #%d %s; the panel deletes its hosting accounts, its plans and the reseller in the background (Background Jobs page).',
+            $resellerId,
+            $state === 'running' ? 'already in progress' : 'queued'
+        );
+
+        $deleted = array_filter((array) ($response['accounts_deleted'] ?? []), 'is_string');
+        $pending = array_filter((array) ($response['accounts_pending'] ?? []), 'is_string');
+        $summary .= sprintf(' Accounts deleted so far: %d; still to delete: %d%s.', count($deleted), count($pending), $pending ? ' (' . implode(', ', $pending) . ')' : '');
+
+        $failed = [];
+        foreach((array) ($response['accounts_failed'] ?? []) as $failure)
+        {
+            if(is_array($failure))
+            {
+                $failed[] = (is_string($failure['username'] ?? null) ? $failure['username'] : 'the reseller') . ': ' . (string) ($failure['reason'] ?? '');
+            }
+        }
+
+        if($failed)
+        {
+            $summary .= ' Not deleted in the last run, tried again now: ' . implode('; ', $failed) . '.';
+        }
+
+        $leftovers = [];
+        foreach((array) ($response['accounts_deleted_with_leftovers'] ?? []) as $leftover)
+        {
+            if(is_array($leftover) && is_string($leftover['username'] ?? null))
+            {
+                $leftovers[] = $leftover['username'] . ': ' . (string) ($leftover['reason'] ?? '');
+            }
+        }
+
+        if($leftovers)
+        {
+            $summary .= ' Accounts deleted with unfinished cleanup steps: ' . implode(' ', $leftovers);
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Before AdminBolt 1.9.7: every hosting account of the reseller through
+     * the regular account deletion endpoint, then the reseller itself. Stops
+     * at the first account that cannot be deleted and keeps the reseller, so
+     * the command can be run again once the cause is fixed.
+     */
+    private function terminateAccountByAccount(int $resellerId): string
+    {
         $api = $this->getApiInstance();
 
         $accounts = [];

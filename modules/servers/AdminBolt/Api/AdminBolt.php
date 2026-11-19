@@ -59,7 +59,7 @@ class AdminBolt
 
         $responseBodyDecoded = json_decode($responseBody, true);
 
-        if($httpCode != 200 && $httpCode != 201 && $httpCode != 204)
+        if(!self::isSuccessCode((int) $httpCode))
         {
             // The panel reports errors under "message"; "error" is kept for older responses.
             $errorMessage = 'API error (HTTP ' . $httpCode . ')';
@@ -81,6 +81,15 @@ class AdminBolt
         }
 
         return $responseBodyDecoded;
+    }
+
+    /**
+     * The HTTP codes of a panel answer that is not an error: 202 is a call
+     * the panel accepted and does in the background (reseller termination).
+     */
+    public static function isSuccessCode(int $httpCode): bool
+    {
+        return in_array($httpCode, [200, 201, 202, 204], true);
     }
 
     /**
@@ -117,4 +126,4 @@ class AdminBolt
     {
         return $this->request('DELETE', $endpoint);
     }
-}
+}
