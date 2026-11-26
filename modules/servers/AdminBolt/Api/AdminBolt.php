@@ -19,6 +19,28 @@ class AdminBolt
 
     protected int $timeoutSeconds = self::TIMEOUT_SECONDS;
 
+    /** An administrator key: the admin API (/api/...). */
+    public const KEY_ADMIN = 'admin';
+
+    /** A reseller's key: the reseller API (/api/reseller/...), own plans and accounts only. */
+    public const KEY_RESELLER = 'reseller';
+
+    /**
+     * What the panel's API key middleware answers (403) for a key of another
+     * owner type, before the request reaches any controller, so nothing was
+     * done and the same request may go to the other API.
+     */
+    public const WRONG_KEY_TYPE_ERROR = 'API key does not have access to this resource';
+
+    /**
+     * The key type of the server's API key: null until the first answer
+     * shows it. Calls go to the admin API first, as in module 0.0.5; when
+     * the panel refuses the key there as a key of another owner type, the
+     * call is sent to the reseller API, and every later call of this client
+     * goes there.
+     */
+    protected ?string $keyType = null;
+
     public function __construct(
         protected string $url,
         protected string $apiKey,
@@ -137,21 +159,115 @@ class AdminBolt
 
     public function get(string $endpoint): ?array
     {
-        return $this->request('GET', $endpoint);
+        return $this->send('GET', $endpoint);
     }
 
     public function post(string $endpoint, ?array $content = null): ?array
     {
-        return $this->request('POST', $endpoint, $content);
+        return $this->send('POST', $endpoint, $content);
     }
 
     public function put(string $endpoint, ?array $content = null): ?array
     {
-        return $this->request('PUT', $endpoint, $content);
+        return $this->send('PUT', $endpoint, $content);
     }
 
     public function delete(string $endpoint): ?array
     {
-        return $this->request('DELETE', $endpoint);
+        return $this->send('DELETE', $endpoint);
+    }
+
+    /** The key type shown by the panel's answers so far (KEY_ADMIN, KEY_RESELLER), or null. */
+    public function keyType(): ?string
+    {
+        return $this->keyType;
+    }
+
+    /**
+     * Sends a call written for the admin API. With a reseller key it goes to
+     * the reseller API, which has the same hosting plan and hosting account
+     * calls limited to the reseller's own plans and accounts; a call that
+     * only the admin API has (resellers, the admin login) fails with a clear
+     * message before anything is sent.
+     */
+    protected function send(string $method, string $endpoint, ?array $content = null): ?array
+    {
+        if($this->keyType === self::KEY_RESELLER)
+        {
+            return $this->request($method, $this->resellerEndpointOrFail($endpoint), $content);
+        }
+
+        try
+        {
+            $response = $this->request($method, $endpoint, $content);
+        }
+        catch(ApiException $e)
+        {
+            if($this->keyType !== null || !self::isWrongKeyType($e))
+            {
+                throw $e;
+            }
+
+            $resellerEndpoint = $this->resellerEndpointOrFail($endpoint);
+
+            try
+            {
+                $response = $this->request($method, $resellerEndpoint, $content);
+            }
+            catch(ApiException $resellerError)
+            {
+                if(self::isWrongKeyType($resellerError))
+                {
+                    throw new Exception('The API key of this server is neither an administrator key nor a reseller key: the panel refused it on the admin API and on the reseller API ("' . self::WRONG_KEY_TYPE_ERROR . '"). Enter an administrator API key, or a reseller\'s API key for shared hosting products, in the server settings. Nothing was changed.', 0, $resellerError);
+                }
+
+                $this->keyType = self::KEY_RESELLER;
+                throw $resellerError;
+            }
+
+            $this->keyType = self::KEY_RESELLER;
+
+            return $response;
+        }
+
+        $this->keyType = self::KEY_ADMIN;
+
+        return $response;
+    }
+
+    /**
+     * The reseller API path of an admin API path: /api/hosting-plans... and
+     * /api/hosting-accounts... (with every sub-path the module uses) under
+     * /api/reseller/. Any other path has no reseller counterpart.
+     */
+    public static function resellerEndpoint(string $endpoint): ?string
+    {
+        if(preg_match('#^/api/(hosting-plans|hosting-accounts)(?=/|\?|$)(.*)$#s', $endpoint, $m))
+        {
+            return '/api/reseller/' . $m[1] . $m[2];
+        }
+
+        return null;
+    }
+
+    protected function resellerEndpointOrFail(string $endpoint): string
+    {
+        $resellerEndpoint = self::resellerEndpoint($endpoint);
+
+        if($resellerEndpoint === null)
+        {
+            throw new Exception('This needs an administrator API key, and the API key of this server is not one (the panel answered "' . self::WRONG_KEY_TYPE_ERROR . '" on the admin API). A reseller\'s API key works for shared hosting products only; reseller products and the admin login to the panel need an administrator API key in the server settings. Nothing was changed.');
+        }
+
+        return $resellerEndpoint;
+    }
+
+    /** The panel refused the key as one of another owner type (403 from its key middleware). */
+    public static function isWrongKeyType(ApiException $e): bool
+    {
+        $body = $e->getResponseBody() ?? [];
+        $error = is_string($body['error'] ?? null) ? rtrim(trim($body['error']), '.') : '';
+
+        return $e->getHttpCode() === 403 && $error === self::WRONG_KEY_TYPE_ERROR;
     }
 }

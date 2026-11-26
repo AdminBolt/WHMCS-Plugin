@@ -3,6 +3,7 @@
 namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\ApiException;
+use ModulesGarden\AdminBolt\Helpers\HostingPlanSetting;
 use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 use WHMCS\Database\Capsule;
 use Exception;
@@ -53,10 +54,12 @@ class CreateAccount extends AbstractAction
 
     public function sharedExecute(): string
     {
+        $planName = HostingPlanSetting::nameFrom($this->params['configoption1'] ?? '');
+
         $api = $this->getApiInstance();
-        $result = $api->post('/api/hosting-accounts', [
+        $result = $this->withPlanReason(fn() => $api->post('/api/hosting-accounts', [
             'domain' => $this->params['domain'],
-            'hosting_plan_id' => $this->params['configoption1'],
+            'hosting_plan' => $planName,
             'username' => $this->getUsername(),
             'ssh_access' => $this->params['configoption2'] == 'on',
             'password' => $this->params['password'],
@@ -69,7 +72,7 @@ class CreateAccount extends AbstractAction
             'zip' => $this->params['clientsdetails']['postcode'],
             'country' => $this->params['clientsdetails']['countrycode'],
             'company' => $this->params['clientsdetails']['company']
-        ]);
+        ]), 'Nothing was created.');
 
         $hostingAccountId = $this->extractId($result);
 

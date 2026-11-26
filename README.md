@@ -14,6 +14,12 @@ In the server configuration panel select **AdminBolt** in the **Module** field. 
 
 Once all fields are completed use the **Test Connection** button to verify communication between WHMCS and AdminBolt.
 
+### Supported API keys
+
+* **Administrator API key** (created in the admin panel): every module function, for shared hosting and reseller hosting products, and the admin login button of the server.
+* **Reseller API key** (created in the reseller panel): shared hosting products only. The module finds out the key type from the panel's first answer and then uses the reseller API, so the **Hosting Plan** list shows the reseller's own plans, and **Create**, **Suspend**, **Unsuspend**, **Change Package**, **Change Password**, **Terminate**, the login button and the usage update act on the reseller's own hosting accounts, which belong to that reseller in the panel. Reseller hosting products and the admin login button of the server need an administrator API key and stop with a message saying so; nothing is changed in the panel.
+* Client API keys are not supported; **Test Connection** says so.
+
 After verifying connectivity create a server group and assign the newly configured server to that group.
 
 ![Server Configuration](images/page_1_img_2.png)
@@ -26,7 +32,9 @@ Create a new product and set the **Product Type** to **Shared Hosting**. In the 
 
 ![Shared Hosting Configuration](images/page_2_img_1.png)
 
-Once the module is selected the configuration fields appear. These include the **Hosting Plan** dropdown listing all available plans defined in the AdminBolt panel and the **SSH Access** option.
+Once the module is selected the configuration fields appear. These include the **Hosting Plan** dropdown and the **SSH Access** option. The dropdown lists the plans of one AdminBolt server of the selected server group: with an administrator API key the administrator's own plans (not the resellers' plans), with a reseller API key the reseller's plans.
+
+The product stores the plan **name**, and **Create** and **Change Package** send that name, so one product works on every AdminBolt server of its server group: each server uses its own plan of that name, whatever its ID there. Every server of the group needs exactly one plan with that name (among the administrator's plans, or the reseller's plans for a reseller API key). A server without it stops **Create** with `Hosting plan not found: <name>`, and a server with two plans of that name with `Hosting plan name is ambiguous, use hosting_plan_id: <name>`; nothing is created. Sending the plan by name needs AdminBolt 1.8.2 or newer on every server.
 
 ![Module Settings](images/page_2_img_2.png)
 

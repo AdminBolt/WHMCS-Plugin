@@ -2,6 +2,7 @@
 
 namespace ModulesGarden\AdminBolt\Actions;
 
+use ModulesGarden\AdminBolt\Helpers\HostingPlanSetting;
 use ModulesGarden\AdminBolt\Helpers\ResellerLimits;
 
 class ChangePackage extends AbstractAction
@@ -25,13 +26,16 @@ class ChangePackage extends AbstractAction
 
     public function sharedExecute(): string
     {
+        $planName = HostingPlanSetting::nameFrom($this->params['configoption1'] ?? '');
         $hostingAccountId = $this->getVerifiedHostingAccountId();
 
         $api = $this->getApiInstance();
-        $api->put('/api/hosting-accounts/' . $hostingAccountId, [
-            'hosting_plan_id' => $this->params['configoption1'],
+        $answer = $this->withPlanReason(fn() => $api->put('/api/hosting-accounts/' . $hostingAccountId, [
+            'hosting_plan' => $planName,
             'ssh_access' => $this->params['configoption2'] == 'on'
-        ]);
+        ]), 'Nothing was changed.');
+
+        $this->confirmAccountPlan($hostingAccountId, $planName, $answer);
 
         return 'success';
     }
