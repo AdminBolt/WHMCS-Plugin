@@ -76,6 +76,9 @@ class CreateAccount extends AbstractAction
         if($hostingAccountId > 0)
         {
             $this->saveCustomFieldValue('hostingAccountId', $hostingAccountId);
+
+            // Plugin features bought with the order (configurable options).
+            $this->applyPluginFeatures($hostingAccountId);
         }
 
         return 'success';

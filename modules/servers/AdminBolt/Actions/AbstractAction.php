@@ -4,6 +4,7 @@ namespace ModulesGarden\AdminBolt\Actions;
 
 use ModulesGarden\AdminBolt\Api\AdminBolt;
 use ModulesGarden\AdminBolt\Api\ApiException;
+use ModulesGarden\AdminBolt\Helpers\PluginFeatures;
 use WHMCS\Database\Capsule;
 use Exception;
 
@@ -69,6 +70,26 @@ abstract class AbstractAction
         {
             throw new Exception($e->getPanelReason(), 0, $e);
         }
+    }
+
+    /**
+     * Switch the account's plugin features on or off as the service's
+     * configurable options say (see PluginFeatures). Nothing is sent when
+     * the product has no such options.
+     */
+    protected function applyPluginFeatures(int $hostingAccountId): void
+    {
+        $features = PluginFeatures::fromParams($this->params);
+
+        if(empty($features))
+        {
+            return;
+        }
+
+        $api = $this->getApiInstance();
+        $this->withPanelReason(fn() => $api->put('/api/hosting-accounts/' . $hostingAccountId . '/feature-overrides', [
+            'features' => $features,
+        ]));
     }
 
     /**

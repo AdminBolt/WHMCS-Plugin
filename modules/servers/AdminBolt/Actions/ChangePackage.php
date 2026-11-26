@@ -33,6 +33,10 @@ class ChangePackage extends AbstractAction
             'ssh_access' => $this->params['configoption2'] == 'on'
         ]);
 
+        // An upgrade or downgrade of configurable options lands here too:
+        // a plugin feature bought or cancelled.
+        $this->applyPluginFeatures($hostingAccountId);
+
         return 'success';
     }
 }

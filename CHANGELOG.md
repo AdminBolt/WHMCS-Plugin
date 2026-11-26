@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Sell AdminBolt plugin features as configurable options. An option named `plugin:<plugin id>|<name>` (for example `plugin:matomo|Website statistics`) switches that plugin on for the service's account when it is bought and off when it is not, on create and on every package or option change, through `PUT /api/hosting-accounts/{id}/feature-overrides`. Products without such options send nothing new. See "Selling Plugin Features" in the README.
+
 ## [0.0.5] - 2026-11-20
 
 ### Release Overview
