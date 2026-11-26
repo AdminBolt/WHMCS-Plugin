@@ -20,7 +20,11 @@ tests_reset();
 $answer = fn(?array $response = null, ?Throwable $throw = null) => new TestApi(function(string $method, string $endpoint) use ($response, $throw) {
     if($method === 'GET' && preg_match('#^/api/(resellers|hosting-accounts)/\d+$#', $endpoint, $m))
     {
-        return ['username' => $m[1] === 'resellers' ? 'resel1' : 'shop5'];
+        return $m[1] === 'resellers' ? ['username' => 'resel1'] : ['username' => 'shop5', 'hosting_plan_id' => 3];
+    }
+    if($method === 'GET' && $endpoint === '/api/hosting-plans')
+    {
+        return [['id' => 3, 'name' => 'Basic']];
     }
     if($throw)
     {
@@ -110,11 +114,11 @@ foreach([
 }
 check(str_contains($options['Maximum Accounts']['Description'], 'save the product'), 'settings tell to save the product after switching type');
 
-// 10. Shared products unchanged.
-$shared = ['producttype' => 'hostingaccount', 'username' => 'shop5', 'configoption1' => '3', 'configoption2' => 'on', 'customfields' => ['hostingAccountId' => '5'], 'serviceid' => 0, 'packageid' => 0];
+// 10. Shared products: the reseller limits play no part (the plan goes by name, AB-2742).
+$shared = ['producttype' => 'hostingaccount', 'username' => 'shop5', 'configoption1' => 'name:Basic', 'configoption2' => 'on', 'customfields' => ['hostingAccountId' => '5'], 'serviceid' => 0, 'packageid' => 0];
 $api = $answer();
 with_api(new ChangePackage($shared), $api)->execute();
-check($api->calls === [['GET /api/hosting-accounts/5', null], ['PUT /api/hosting-accounts/5', ['hosting_plan_id' => '3', 'ssh_access' => true]]], 'shared package change unchanged');
+check($api->calls === [['GET /api/hosting-accounts/5', null], ['PUT /api/hosting-accounts/5', ['hosting_plan' => 'Basic', 'ssh_access' => true]], ['GET /api/hosting-accounts/5', null], ['GET /api/hosting-plans', null]], 'shared package change sends no limits: ' . json_encode($api->calls));
 $api = $answer(['username' => 'shop5', 'sso_url' => 'u']);
 check(with_api(new ServiceSingleSignOn($shared), $api)->execute() === ['success' => true, 'redirectTo' => 'u'] && $api->endpoints() === ['GET /api/hosting-accounts/5', 'POST /api/hosting-accounts/5/generate-sso-token'], 'shared login: username checked, then link');
 

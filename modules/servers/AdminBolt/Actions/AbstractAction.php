@@ -72,6 +72,124 @@ abstract class AbstractAction
     }
 
     /**
+     * Runs a create or update call that sends the plan by name and, when the
+     * panel refuses it, fails with the panel's reason (for example "Hosting
+     * plan not found: <name>" or "Hosting plan name is ambiguous, use
+     * hosting_plan_id: <name>"). A panel that still requires the plan ID
+     * (AdminBolt before 1.8.2) gets a message that says so.
+     */
+    protected function withPlanReason(callable $call, string $outcome): mixed
+    {
+        try
+        {
+            return $call();
+        }
+        catch(ApiException $e)
+        {
+            if($e->getHttpCode() === 422 && self::panelRequiresPlanId($e))
+            {
+                throw new Exception(sprintf(
+                    'This AdminBolt server does not take the hosting plan by name, which AdminBolt 1.8.2 and newer do. %s Update AdminBolt on this server. (%s)',
+                    $outcome,
+                    $e->getPanelReason()
+                ), 0, $e);
+            }
+
+            throw new Exception($e->getPanelReason(), 0, $e);
+        }
+    }
+
+    /**
+     * A validation refusal that asks for hosting_plan_id although the module
+     * sent hosting_plan: the panel does not know the field.
+     */
+    protected static function panelRequiresPlanId(ApiException $e): bool
+    {
+        $errors = $e->getResponseBody()['errors'] ?? null;
+
+        if(!is_array($errors) || isset($errors['hosting_plan']) || !isset($errors['hosting_plan_id']))
+        {
+            return false;
+        }
+
+        foreach((array) $errors['hosting_plan_id'] as $message)
+        {
+            if(is_string($message) && stripos($message, 'required') !== false)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * After a package change: the account must be on a plan with the name
+     * that was sent. A panel before AdminBolt 1.8.2 ignores the plan name in
+     * an update and answers success, so the answer alone does not show it.
+     * The plan ID comes from the update's answer (the account as saved; read
+     * again only when the answer lacks it) and its name from the plan list,
+     * so the check needs no API endpoint that module 0.0.5 did not call.
+     */
+    protected function confirmAccountPlan(int $hostingAccountId, string $planName, mixed $updateAnswer): void
+    {
+        $api = $this->getApiInstance();
+        $planIdOf = fn(mixed $account) => is_array($account)
+            ? (int) ($account['hosting_plan_id'] ?? $account['hostingAccount']['hosting_plan_id'] ?? $account['data']['hosting_plan_id'] ?? 0)
+            : 0;
+
+        try
+        {
+            $planId = $planIdOf($updateAnswer);
+
+            if($planId <= 0)
+            {
+                $planId = $planIdOf($api->get('/api/hosting-accounts/' . $hostingAccountId));
+            }
+
+            if($planId <= 0)
+            {
+                throw new Exception("the panel's answer has no plan ID for the account");
+            }
+
+            $currentName = null;
+            foreach($this->extractList($api->get('/api/hosting-plans')) as $plan)
+            {
+                if(is_array($plan) && (int) ($plan['id'] ?? 0) === $planId && is_string($plan['name'] ?? null))
+                {
+                    $currentName = $plan['name'];
+                    break;
+                }
+            }
+
+            if($currentName === null)
+            {
+                throw new Exception(sprintf("the panel's plan list has no plan with ID %d", $planId));
+            }
+        }
+        catch(Exception $e)
+        {
+            throw new Exception(sprintf(
+                'The panel accepted the package change, but the plan of hosting account ID %d could not be read back to confirm it is "%s": %s. Check the account\'s plan in the panel.',
+                $hostingAccountId,
+                $planName,
+                rtrim($e instanceof ApiException ? $e->getPanelReason() : $e->getMessage(), '.')
+            ), 0, $e);
+        }
+
+        if(mb_strtolower(trim($currentName)) !== mb_strtolower(trim($planName)))
+        {
+            throw new Exception(sprintf(
+                'The panel answered the package change, but hosting account ID %d is on the plan "%s" (ID %d), not "%s". AdminBolt before 1.8.2 ignores a plan sent by name, so check the AdminBolt version of this server. The SSH access setting was sent in the same request.',
+                $hostingAccountId,
+                $currentName,
+                $planId,
+                $planName
+            ));
+        }
+    }
+
+    /**
      * The hosting account ID stored on the service. When it is empty, it is
      * recovered only from a panel account whose domain and username both
      * equal the service's (case-insensitive), and only when exactly one

@@ -21,7 +21,7 @@ use WHMCS\Database\Capsule;
 
 tests_reset();
 
-$otherCustomer = ['id' => 33, 'username' => 'shopb', 'domain' => 'other-shop.example.test', 'reseller_id' => 8];
+$otherCustomer = ['id' => 33, 'username' => 'shopb', 'domain' => 'other-shop.example.test', 'reseller_id' => 8, 'hosting_plan_id' => 2];
 $panel = fn(array $accounts) => new TestApi(function(string $method, string $endpoint) use ($accounts) {
     if($method === 'GET' && $endpoint === '/api/hosting-accounts')
     {
@@ -38,6 +38,10 @@ $panel = fn(array $accounts) => new TestApi(function(string $method, string $end
         }
         return null;
     }
+    if($method === 'GET' && $endpoint === '/api/hosting-plans')
+    {
+        return [['id' => 2, 'name' => 'Basic']];
+    }
     return ['sso_url' => 'https://panel.example.test/sso/x'];
 });
 
@@ -48,7 +52,7 @@ $service = [
     'domain' => 'shop-b.example.test',
     'username' => 'shopb',
     'password' => 'Secret-123',
-    'configoption1' => '2',
+    'configoption1' => 'name:Basic',
     'configoption2' => '',
     'customfields' => ['hostingAccountId' => ''],
 ];
@@ -119,7 +123,7 @@ $expected = [
     'Terminate' => ['GET /api/hosting-accounts/33', 'DELETE /api/hosting-accounts/33'],
     'Suspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/suspend'],
     'Unsuspend' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/unsuspend'],
-    'ChangePackage' => ['GET /api/hosting-accounts/33', 'PUT /api/hosting-accounts/33'],
+    'ChangePackage' => ['GET /api/hosting-accounts/33', 'PUT /api/hosting-accounts/33', 'GET /api/hosting-accounts/33', 'GET /api/hosting-plans'],
     'ChangePassword' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/change-password'],
     'SSO' => ['GET /api/hosting-accounts/33', 'POST /api/hosting-accounts/33/generate-sso-token'],
 ];
