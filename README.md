@@ -34,6 +34,19 @@ The module automatically creates a custom field named `hostingAccountId|Hosting 
 
 ![Custom Field - Hosting Account ID](images/page_2_img_3.png)
 
+### Selling Plugin Features
+
+What an AdminBolt plugin offers hosting customers is a feature of their hosting plan, with the code `plugin:<plugin id>`, for example `plugin:matomo` for website statistics. You can include it in a plan's Feature List in AdminBolt, or sell it as an add-on to single accounts from WHMCS:
+
+1. In AdminBolt, take the plugin off the Feature Lists of the plans it should not be part of. When a plugin is installed, it is added to every Feature List.
+2. In WHMCS, go to **System Settings > Configurable Options** and create a group for your shared hosting products.
+3. Add an option whose name is the feature code, a vertical bar and the name customers see, for example `plugin:matomo|Website statistics`. Make it a **Yes/No** option and set its monthly price, for example 2 EUR.
+4. Assign the group to the products that should offer it.
+
+When an order is created, the module switches the feature on for the new account if the customer chose the option, and off if they did not. An upgrade or downgrade of the option switches it on or off in the same way. The feature is changed for that account only and stays in place when the hosting plan changes. Products without such options work as before.
+
+A **Quantity** option counts as bought when it is above 0, and a **Dropdown** option when the chosen option is named `Yes`.
+
 ### Reseller Hosting
 
 Create a new product and set the **Product Type** to **Reseller Hosting**. In the **Module Settings** tab, choose **AdminBolt** as the **Module Name**, then select the previously created server group in the **Server Group** field.
